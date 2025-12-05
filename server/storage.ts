@@ -5,6 +5,7 @@ import {
   groups,
   topics,
   userProgress,
+  userStats,
   leaderboard,
   categories,
   type User,
@@ -15,6 +16,8 @@ import {
   type InsertTopic,
   type UserProgress,
   type InsertUserProgress,
+  type UserStats,
+  type InsertUserStats,
   type Leaderboard,
   type InsertLeaderboard,
   type Category,
@@ -52,6 +55,10 @@ export interface IStorage {
   
   getCategories(): Promise<Category[]>;
   createCategory(category: InsertCategory): Promise<Category>;
+  
+  getUserStats(userId: string): Promise<UserStats | undefined>;
+  updateUserStats(userId: string, data: Partial<InsertUserStats>): Promise<UserStats>;
+  recordActivity(userId: string): Promise<UserStats>;
   
   hashPassword(password: string): Promise<string>;
   comparePassword(password: string, hash: string): Promise<boolean>;
@@ -194,6 +201,69 @@ export class DatabaseStorage implements IStorage {
 
   async createCategory(category: InsertCategory): Promise<Category> {
     const result = await db.insert(categories).values(category).returning();
+    return result[0];
+  }
+
+  async getUserStats(userId: string): Promise<UserStats | undefined> {
+    const result = await db.select().from(userStats)
+      .where(eq(userStats.userId, userId)).limit(1);
+    return result[0];
+  }
+
+  async updateUserStats(userId: string, data: Partial<InsertUserStats>): Promise<UserStats> {
+    const existing = await this.getUserStats(userId);
+    if (existing) {
+      const result = await db.update(userStats).set({
+        ...data,
+        updatedAt: new Date(),
+      }).where(eq(userStats.userId, userId)).returning();
+      return result[0];
+    }
+    const result = await db.insert(userStats).values({
+      userId,
+      ...data,
+    }).returning();
+    return result[0];
+  }
+
+  async recordActivity(userId: string): Promise<UserStats> {
+    const existing = await this.getUserStats(userId);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    if (!existing) {
+      const result = await db.insert(userStats).values({
+        userId,
+        currentStreak: 1,
+        longestStreak: 1,
+        lastActiveDate: new Date(),
+      }).returning();
+      return result[0];
+    }
+    
+    const lastActive = existing.lastActiveDate ? new Date(existing.lastActiveDate) : null;
+    if (lastActive) {
+      lastActive.setHours(0, 0, 0, 0);
+    }
+    
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+    
+    let newStreak = existing.currentStreak;
+    if (!lastActive || lastActive < yesterday) {
+      newStreak = 1;
+    } else if (lastActive.getTime() === yesterday.getTime()) {
+      newStreak = existing.currentStreak + 1;
+    }
+    
+    const longestStreak = Math.max(newStreak, existing.longestStreak);
+    
+    const result = await db.update(userStats).set({
+      currentStreak: newStreak,
+      longestStreak,
+      lastActiveDate: new Date(),
+      updatedAt: new Date(),
+    }).where(eq(userStats.userId, userId)).returning();
     return result[0];
   }
 

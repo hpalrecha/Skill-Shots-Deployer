@@ -41,8 +41,22 @@ export const userProgress = pgTable("user_progress", {
   status: text("status").notNull().default("Pending"),
   quizScore: integer("quiz_score"),
   quizTotal: integer("quiz_total"),
+  timeSpent: integer("time_spent").default(0),
   completedAt: timestamp("completed_at"),
   createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const userStats = pgTable("user_stats", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().unique(),
+  currentStreak: integer("current_streak").notNull().default(0),
+  longestStreak: integer("longest_streak").notNull().default(0),
+  lastActiveDate: timestamp("last_active_date"),
+  totalTopicsCompleted: integer("total_topics_completed").notNull().default(0),
+  totalTimeSpent: integer("total_time_spent").notNull().default(0),
+  totalQuizzesPassed: integer("total_quizzes_passed").notNull().default(0),
+  averageQuizScore: integer("average_quiz_score").default(0),
+  updatedAt: timestamp("updated_at").defaultNow(),
 });
 
 export const leaderboard = pgTable("leaderboard", {
@@ -85,6 +99,11 @@ export const insertLeaderboardSchema = createInsertSchema(leaderboard).omit({
   updatedAt: true,
 });
 
+export const insertUserStatsSchema = createInsertSchema(userStats).omit({
+  id: true,
+  updatedAt: true,
+});
+
 export const insertCategorySchema = createInsertSchema(categories).omit({
   id: true,
   createdAt: true,
@@ -104,6 +123,9 @@ export type UserProgress = typeof userProgress.$inferSelect;
 
 export type InsertLeaderboard = z.infer<typeof insertLeaderboardSchema>;
 export type Leaderboard = typeof leaderboard.$inferSelect;
+
+export type InsertUserStats = z.infer<typeof insertUserStatsSchema>;
+export type UserStats = typeof userStats.$inferSelect;
 
 export type InsertCategory = z.infer<typeof insertCategorySchema>;
 export type Category = typeof categories.$inferSelect;

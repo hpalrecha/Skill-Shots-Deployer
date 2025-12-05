@@ -571,5 +571,99 @@ Requirements:
     }
   });
 
+  app.get("/api/analytics/:userId", async (req, res) => {
+    try {
+      const { userId } = req.params;
+      
+      const stats = await storage.getUserStats(userId);
+      const progress = await storage.getUserProgressAll(userId);
+      
+      const completedTopics = progress.filter(p => p.status === "Completed");
+      const quizScores = completedTopics
+        .filter(p => p.quizScore !== null && p.quizTotal !== null)
+        .map(p => ({ score: p.quizScore!, total: p.quizTotal!, date: p.completedAt }));
+      
+      const totalQuizzes = quizScores.length;
+      const averageScore = totalQuizzes > 0
+        ? Math.round(quizScores.reduce((acc, q) => acc + (q.score / q.total) * 100, 0) / totalQuizzes)
+        : 0;
+      
+      const weeklyProgress: { day: string; completed: number }[] = [];
+      const today = new Date();
+      for (let i = 6; i >= 0; i--) {
+        const date = new Date(today);
+        date.setDate(date.getDate() - i);
+        const dayStr = date.toLocaleDateString('en-US', { weekday: 'short' });
+        const dayStart = new Date(date);
+        dayStart.setHours(0, 0, 0, 0);
+        const dayEnd = new Date(date);
+        dayEnd.setHours(23, 59, 59, 999);
+        
+        const count = completedTopics.filter(p => {
+          if (!p.completedAt) return false;
+          const completed = new Date(p.completedAt);
+          return completed >= dayStart && completed <= dayEnd;
+        }).length;
+        
+        weeklyProgress.push({ day: dayStr, completed: count });
+      }
+      
+      const categoryProgress: { category: string; completed: number; total: number }[] = [];
+      const allTopics = await storage.getAllTopics();
+      const categoryMap = new Map<string, { completed: number; total: number }>();
+      
+      allTopics.forEach(topic => {
+        const cat = topic.category || "Uncategorized";
+        if (!categoryMap.has(cat)) {
+          categoryMap.set(cat, { completed: 0, total: 0 });
+        }
+        categoryMap.get(cat)!.total++;
+        
+        const isCompleted = completedTopics.some(p => p.topicId === topic.id);
+        if (isCompleted) {
+          categoryMap.get(cat)!.completed++;
+        }
+      });
+      
+      categoryMap.forEach((value, key) => {
+        categoryProgress.push({ category: key, ...value });
+      });
+      
+      res.json({
+        currentStreak: stats?.currentStreak || 0,
+        longestStreak: stats?.longestStreak || 0,
+        totalTopicsCompleted: completedTopics.length,
+        totalQuizzesPassed: totalQuizzes,
+        averageQuizScore: averageScore,
+        weeklyProgress,
+        categoryProgress,
+        recentQuizzes: quizScores.slice(-5).map(q => ({
+          score: q.score,
+          total: q.total,
+          percentage: Math.round((q.score / q.total) * 100),
+          date: q.date
+        })),
+      });
+    } catch (error: any) {
+      console.error("Get analytics error:", error);
+      res.status(500).json({ error: error.message || "Failed to get analytics" });
+    }
+  });
+
+  app.post("/api/analytics/activity", async (req, res) => {
+    try {
+      const { userId } = req.body;
+      if (!userId) {
+        return res.status(400).json({ error: "userId is required" });
+      }
+      
+      const stats = await storage.recordActivity(userId);
+      res.json(stats);
+    } catch (error: any) {
+      console.error("Record activity error:", error);
+      res.status(500).json({ error: error.message || "Failed to record activity" });
+    }
+  });
+
   return httpServer;
 }
