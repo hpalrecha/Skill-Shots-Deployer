@@ -66,12 +66,12 @@ export default function Dashboard({ topics, categories, onSelectTopic, groups, l
   return (
     <div className="space-y-6">
       <div className="flex flex-col space-y-6">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div>
-            <h2 className="text-3xl font-bold text-foreground" data-testid="text-dashboard-title">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+          <div className="min-w-0 flex-1">
+            <h2 className="text-2xl md:text-3xl font-bold text-foreground" data-testid="text-dashboard-title">
               {viewMode === 'learning' ? 'Your Learning Dashboard' : viewMode === 'sop' ? 'SOP Library' : 'Learning Analytics'}
             </h2>
-            <p className="text-muted-foreground mt-1">
+            <p className="text-muted-foreground mt-1 text-sm md:text-base">
               {viewMode === 'learning'
                 ? 'Track your progress and climb the leaderboard!'
                 : viewMode === 'sop' 
@@ -80,36 +80,39 @@ export default function Dashboard({ topics, categories, onSelectTopic, groups, l
             </p>
           </div>
 
-          <div className="flex p-1 bg-muted rounded-lg self-start md:self-auto">
+          <div className="flex p-1 bg-muted rounded-lg self-start lg:self-auto flex-shrink-0 gap-1">
             <Button
               variant={viewMode === 'learning' ? 'default' : 'ghost'}
               size="sm"
               onClick={() => setViewMode('learning')}
-              className="flex items-center"
+              className="flex items-center whitespace-nowrap"
               data-testid="button-my-learning"
             >
-              <BrainIcon className="h-4 w-4 mr-2" />
-              My Learning
+              <BrainIcon className="h-4 w-4 mr-1.5" />
+              <span className="hidden sm:inline">My Learning</span>
+              <span className="sm:hidden">Learn</span>
             </Button>
             <Button
               variant={viewMode === 'sop' ? 'default' : 'ghost'}
               size="sm"
               onClick={() => setViewMode('sop')}
-              className="flex items-center"
+              className="flex items-center whitespace-nowrap"
               data-testid="button-sop-library"
             >
-              <ClipboardListIcon className="h-4 w-4 mr-2" />
-              SOP Library
+              <ClipboardListIcon className="h-4 w-4 mr-1.5" />
+              <span className="hidden sm:inline">SOP Library</span>
+              <span className="sm:hidden">SOPs</span>
             </Button>
             <Button
               variant={viewMode === 'analytics' ? 'default' : 'ghost'}
               size="sm"
               onClick={() => setViewMode('analytics')}
-              className="flex items-center"
+              className="flex items-center whitespace-nowrap"
               data-testid="button-analytics"
             >
-              <BarChart2 className="h-4 w-4 mr-2" />
-              Analytics
+              <BarChart2 className="h-4 w-4 mr-1.5" />
+              <span className="hidden sm:inline">Analytics</span>
+              <span className="sm:hidden">Stats</span>
             </Button>
           </div>
         </div>

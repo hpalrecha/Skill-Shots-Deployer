@@ -94,63 +94,63 @@ export default function Analytics({ userId }: AnalyticsProps) {
 
   return (
     <div className="space-y-6" data-testid="analytics-container">
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card className="p-4">
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-orange-100 dark:bg-orange-950 rounded-lg">
+            <div className="p-2 bg-orange-100 dark:bg-orange-950 rounded-lg flex-shrink-0">
               <Flame className="h-5 w-5 text-orange-500" />
             </div>
-            <div>
-              <p className="text-sm text-muted-foreground">Current Streak</p>
-              <p className="text-2xl font-bold" data-testid="text-current-streak">{data.currentStreak} days</p>
+            <div className="min-w-0">
+              <p className="text-sm text-muted-foreground truncate">Current Streak</p>
+              <p className="text-xl md:text-2xl font-bold" data-testid="text-current-streak">{data.currentStreak} days</p>
             </div>
           </div>
         </Card>
         
         <Card className="p-4">
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-yellow-100 dark:bg-yellow-950 rounded-lg">
+            <div className="p-2 bg-yellow-100 dark:bg-yellow-950 rounded-lg flex-shrink-0">
               <Trophy className="h-5 w-5 text-yellow-500" />
             </div>
-            <div>
-              <p className="text-sm text-muted-foreground">Longest Streak</p>
-              <p className="text-2xl font-bold" data-testid="text-longest-streak">{data.longestStreak} days</p>
+            <div className="min-w-0">
+              <p className="text-sm text-muted-foreground truncate">Longest Streak</p>
+              <p className="text-xl md:text-2xl font-bold" data-testid="text-longest-streak">{data.longestStreak} days</p>
             </div>
           </div>
         </Card>
         
         <Card className="p-4">
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-green-100 dark:bg-green-950 rounded-lg">
+            <div className="p-2 bg-green-100 dark:bg-green-950 rounded-lg flex-shrink-0">
               <BookOpen className="h-5 w-5 text-green-500" />
             </div>
-            <div>
-              <p className="text-sm text-muted-foreground">Topics Completed</p>
-              <p className="text-2xl font-bold" data-testid="text-topics-completed">{data.totalTopicsCompleted}</p>
+            <div className="min-w-0">
+              <p className="text-sm text-muted-foreground truncate">Topics Completed</p>
+              <p className="text-xl md:text-2xl font-bold" data-testid="text-topics-completed">{data.totalTopicsCompleted}</p>
             </div>
           </div>
         </Card>
         
         <Card className="p-4">
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-blue-100 dark:bg-blue-950 rounded-lg">
+            <div className="p-2 bg-blue-100 dark:bg-blue-950 rounded-lg flex-shrink-0">
               <Target className="h-5 w-5 text-blue-500" />
             </div>
-            <div>
-              <p className="text-sm text-muted-foreground">Avg Quiz Score</p>
-              <p className="text-2xl font-bold" data-testid="text-avg-score">{data.averageQuizScore}%</p>
+            <div className="min-w-0">
+              <p className="text-sm text-muted-foreground truncate">Avg Quiz Score</p>
+              <p className="text-xl md:text-2xl font-bold" data-testid="text-avg-score">{data.averageQuizScore}%</p>
             </div>
           </div>
         </Card>
       </div>
 
-      <div className="grid md:grid-cols-2 gap-6">
-        <Card className="p-6">
-          <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
-            <TrendingUp className="h-5 w-5 text-primary" />
-            Weekly Activity
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <Card className="p-4 md:p-6">
+          <h3 className="text-base md:text-lg font-semibold mb-4 flex items-center gap-2">
+            <TrendingUp className="h-5 w-5 text-primary flex-shrink-0" />
+            <span>Weekly Activity</span>
           </h3>
-          <div style={{ width: '100%', height: 200 }}>
+          <div className="w-full h-48 md:h-52">
             <ResponsiveContainer>
               <BarChart data={data.weeklyProgress}>
                 <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
@@ -178,27 +178,27 @@ export default function Analytics({ userId }: AnalyticsProps) {
           </div>
         </Card>
 
-        <Card className="p-6">
-          <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
-            <BookOpen className="h-5 w-5 text-primary" />
-            Progress by Category
+        <Card className="p-4 md:p-6">
+          <h3 className="text-base md:text-lg font-semibold mb-4 flex items-center gap-2">
+            <BookOpen className="h-5 w-5 text-primary flex-shrink-0" />
+            <span>Progress by Category</span>
           </h3>
           {categoryChartData.length > 0 ? (
-            <div style={{ width: '100%', height: 200 }}>
+            <div className="w-full h-48 md:h-52">
               <ResponsiveContainer>
                 <BarChart data={categoryChartData} layout="vertical">
                   <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
                   <XAxis 
                     type="number" 
-                    tick={{ fill: 'hsl(var(--muted-foreground))' }}
+                    tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }}
                     tickLine={false}
                   />
                   <YAxis 
                     dataKey="name" 
                     type="category" 
-                    tick={{ fill: 'hsl(var(--muted-foreground))' }}
+                    tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 11 }}
                     tickLine={false}
-                    width={80}
+                    width={70}
                   />
                   <Tooltip
                     contentStyle={{
@@ -220,12 +220,12 @@ export default function Analytics({ userId }: AnalyticsProps) {
       </div>
 
       {data.recentQuizzes.length > 0 && (
-        <Card className="p-6">
-          <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
-            <Target className="h-5 w-5 text-primary" />
-            Recent Quiz Performance
+        <Card className="p-4 md:p-6">
+          <h3 className="text-base md:text-lg font-semibold mb-4 flex items-center gap-2">
+            <Target className="h-5 w-5 text-primary flex-shrink-0" />
+            <span>Recent Quiz Performance</span>
           </h3>
-          <div style={{ width: '100%', height: 200 }}>
+          <div className="w-full h-48 md:h-52">
             <ResponsiveContainer>
               <LineChart data={data.recentQuizzes}>
                 <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
@@ -236,7 +236,7 @@ export default function Analytics({ userId }: AnalyticsProps) {
                 />
                 <YAxis 
                   domain={[0, 100]}
-                  tick={{ fill: 'hsl(var(--muted-foreground))' }}
+                  tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }}
                   tickLine={false}
                   tickFormatter={(value) => `${value}%`}
                 />
