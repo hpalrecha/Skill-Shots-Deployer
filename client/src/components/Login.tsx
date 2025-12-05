@@ -1,48 +1,96 @@
 import { useState } from 'react';
-import { User } from '../types';
+import { User, UserRole } from '../types';
 import { SkillShotsLogo, LoaderIcon, ArrowLeftIcon } from './icons';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 interface LoginProps {
-  onLogin: (userId: string) => void;
-  users: User[];
+  onLogin: (user: User) => void;
 }
 
-export default function Login({ onLogin, users }: LoginProps) {
-  const [email, setEmail] = useState('alex@example.com');
-  const [password, setPassword] = useState('password123');
+export default function Login({ onLogin }: LoginProps) {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [isForgotPassword, setIsForgotPassword] = useState(false);
+  const [mode, setMode] = useState<'login' | 'register' | 'forgot'>('login');
   const [forgotEmail, setForgotEmail] = useState('');
   const [forgotSuccess, setForgotSuccess] = useState('');
+  
+  const [registerName, setRegisterName] = useState('');
+  const [registerEmail, setRegisterEmail] = useState('');
+  const [registerPassword, setRegisterPassword] = useState('');
+  const [registerRole, setRegisterRole] = useState<'Learner' | 'Creator'>('Learner');
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setIsLoading(true);
 
-    await new Promise(resolve => setTimeout(resolve, 800));
-
     try {
-      const user = users.find(u => u.email.toLowerCase() === email.toLowerCase());
+      const response = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+        credentials: 'include',
+      });
 
-      if (user) {
-        if (user.password && user.password === password) {
-          onLogin(user.id);
-        } else if (!user.password && password === 'password123') {
-          onLogin(user.id);
-        } else {
-          throw new Error('Invalid password.');
-        }
-      } else {
-        throw new Error('User not found.');
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Login failed');
       }
+
+      onLogin({
+        id: data.id,
+        name: data.name,
+        email: data.email,
+        role: data.role as UserRole,
+        groupIds: data.groupIds || [],
+      });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Invalid credentials');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleRegister = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    setIsLoading(true);
+
+    try {
+      const response = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: registerName,
+          email: registerEmail,
+          password: registerPassword,
+          role: registerRole,
+        }),
+        credentials: 'include',
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Registration failed');
+      }
+
+      onLogin({
+        id: data.id,
+        name: data.name,
+        email: data.email,
+        role: data.role as UserRole,
+        groupIds: data.groupIds || [],
+      });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Registration failed');
     } finally {
       setIsLoading(false);
     }
@@ -55,16 +103,13 @@ export default function Login({ onLogin, users }: LoginProps) {
     setIsLoading(true);
 
     await new Promise(resolve => setTimeout(resolve, 1000));
-
-    const user = users.find(u => u.email.toLowerCase() === forgotEmail.toLowerCase());
-
     setIsLoading(false);
+    setForgotSuccess(`If an account exists for ${forgotEmail}, a password reset link has been sent.`);
+  };
 
-    if (user) {
-      setForgotSuccess(`A password reset link has been sent to ${forgotEmail}. Please check your inbox.`);
-    } else {
-      setError('We could not find an account with that email address.');
-    }
+  const resetForm = () => {
+    setError('');
+    setForgotSuccess('');
   };
 
   return (
@@ -78,13 +123,20 @@ export default function Login({ onLogin, users }: LoginProps) {
 
         <Card>
           <CardHeader className="text-center">
-            <CardTitle>{isForgotPassword ? 'Reset Password' : 'Welcome Back'}</CardTitle>
-            {isForgotPassword && (
+            <CardTitle>
+              {mode === 'login' && 'Welcome Back'}
+              {mode === 'register' && 'Create Account'}
+              {mode === 'forgot' && 'Reset Password'}
+            </CardTitle>
+            {mode === 'register' && (
+              <CardDescription>Join SkillShots to start learning</CardDescription>
+            )}
+            {mode === 'forgot' && (
               <CardDescription>Enter your email and we'll send you instructions.</CardDescription>
             )}
           </CardHeader>
           <CardContent>
-            {isForgotPassword ? (
+            {mode === 'forgot' ? (
               <>
                 {forgotSuccess ? (
                   <div className="bg-chart-2/10 border border-chart-2/30 text-chart-2 p-4 rounded-lg mb-6 text-center text-sm" data-testid="text-forgot-success">
@@ -115,16 +167,92 @@ export default function Login({ onLogin, users }: LoginProps) {
 
                 <Button
                   variant="ghost"
-                  onClick={() => { setIsForgotPassword(false); setForgotSuccess(''); setError(''); }}
+                  onClick={() => { setMode('login'); resetForm(); }}
                   className="w-full mt-4"
                   data-testid="button-back-to-login"
                 >
                   <ArrowLeftIcon className="h-4 w-4 mr-1"/> Back to Login
                 </Button>
               </>
+            ) : mode === 'register' ? (
+              <>
+                <form onSubmit={handleRegister} className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="register-name">Full Name</Label>
+                    <Input
+                      id="register-name"
+                      type="text"
+                      required
+                      value={registerName}
+                      onChange={(e) => setRegisterName(e.target.value)}
+                      placeholder="John Smith"
+                      data-testid="input-register-name"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="register-email">Email Address</Label>
+                    <Input
+                      id="register-email"
+                      type="email"
+                      required
+                      value={registerEmail}
+                      onChange={(e) => setRegisterEmail(e.target.value)}
+                      placeholder="you@example.com"
+                      data-testid="input-register-email"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="register-password">Password</Label>
+                    <Input
+                      id="register-password"
+                      type="password"
+                      required
+                      minLength={6}
+                      value={registerPassword}
+                      onChange={(e) => setRegisterPassword(e.target.value)}
+                      placeholder="At least 6 characters"
+                      data-testid="input-register-password"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="register-role">I am a</Label>
+                    <Select value={registerRole} onValueChange={(value) => setRegisterRole(value as 'Learner' | 'Creator')}>
+                      <SelectTrigger data-testid="select-role">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Learner">Learner - I want to learn new skills</SelectItem>
+                        <SelectItem value="Creator">Creator - I want to create courses</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {error && <p className="text-sm text-center text-destructive" data-testid="text-register-error">{error}</p>}
+
+                  <Button type="submit" disabled={isLoading} className="w-full" data-testid="button-register">
+                    {isLoading ? <LoaderIcon className="animate-spin h-5 w-5" /> : 'Create Account'}
+                  </Button>
+                </form>
+
+                <div className="mt-6 text-center">
+                  <span className="text-muted-foreground text-sm">Already have an account? </span>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    onClick={() => { setMode('login'); resetForm(); }}
+                    className="text-sm p-0 h-auto text-primary"
+                    data-testid="button-goto-login"
+                  >
+                    Sign in
+                  </Button>
+                </div>
+              </>
             ) : (
               <>
-                <form onSubmit={handleSubmit} className="space-y-6">
+                <form onSubmit={handleLogin} className="space-y-6">
                   <div className="space-y-2">
                     <Label htmlFor="email">Email Address</Label>
                     <Input
@@ -135,6 +263,7 @@ export default function Login({ onLogin, users }: LoginProps) {
                       required
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
+                      placeholder="you@example.com"
                       data-testid="input-email"
                     />
                   </div>
@@ -149,6 +278,7 @@ export default function Login({ onLogin, users }: LoginProps) {
                       required
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
+                      placeholder="Your password"
                       data-testid="input-password"
                     />
                   </div>
@@ -156,9 +286,9 @@ export default function Login({ onLogin, users }: LoginProps) {
                   <div className="flex items-center justify-end">
                     <Button
                       type="button"
-                      variant="link"
-                      onClick={() => setIsForgotPassword(true)}
-                      className="text-sm p-0 h-auto"
+                      variant="ghost"
+                      onClick={() => { setMode('forgot'); resetForm(); }}
+                      className="text-sm p-0 h-auto text-primary"
                       data-testid="button-forgot-password"
                     >
                       Forgot your password?
@@ -172,10 +302,17 @@ export default function Login({ onLogin, users }: LoginProps) {
                   </Button>
                 </form>
 
-                <div className="mt-6 text-center text-sm text-muted-foreground space-y-1">
-                  <p>Default Admin: <code className="bg-muted px-1 rounded text-foreground">alex@example.com</code></p>
-                  <p>Default Learner: <code className="bg-muted px-1 rounded text-foreground">sam@example.com</code></p>
-                  <p>Default Password: <code className="bg-muted px-1 rounded text-foreground">password123</code></p>
+                <div className="mt-6 text-center">
+                  <span className="text-muted-foreground text-sm">Don't have an account? </span>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    onClick={() => { setMode('register'); resetForm(); }}
+                    className="text-sm p-0 h-auto text-primary"
+                    data-testid="button-goto-register"
+                  >
+                    Sign up
+                  </Button>
                 </div>
               </>
             )}

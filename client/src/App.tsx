@@ -49,14 +49,43 @@ function App() {
   const [categories, setCategories] = useState<string[]>(() => loadFromStorage(STORAGE_KEYS.categories, INITIAL_CATEGORIES));
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>(() => loadFromStorage(STORAGE_KEYS.leaderboard, MOCK_LEADERBOARD));
 
-  const [currentUser, setCurrentUser] = useState<User | null>(() => {
-    const userId = localStorage.getItem(STORAGE_KEYS.currentUser);
-    if (userId) {
-      const storedUsers = loadFromStorage<User[]>(STORAGE_KEYS.users, INITIAL_USERS);
-      return storedUsers.find(u => u.id === userId) || null;
-    }
-    return null;
-  });
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [isCheckingAuth, setIsCheckingAuth] = useState(true);
+
+  useEffect(() => {
+    const checkAuth = async () => {
+      try {
+        const response = await fetch('/api/auth/me', { credentials: 'include' });
+        if (response.ok) {
+          const userData = await response.json();
+          setCurrentUser({
+            id: userData.id,
+            name: userData.name,
+            email: userData.email,
+            role: userData.role,
+            groupIds: userData.groupIds || [],
+          });
+        } else {
+          const userId = localStorage.getItem(STORAGE_KEYS.currentUser);
+          if (userId) {
+            const storedUsers = loadFromStorage<User[]>(STORAGE_KEYS.users, INITIAL_USERS);
+            const user = storedUsers.find(u => u.id === userId);
+            if (user) setCurrentUser(user);
+          }
+        }
+      } catch (err) {
+        const userId = localStorage.getItem(STORAGE_KEYS.currentUser);
+        if (userId) {
+          const storedUsers = loadFromStorage<User[]>(STORAGE_KEYS.users, INITIAL_USERS);
+          const user = storedUsers.find(u => u.id === userId);
+          if (user) setCurrentUser(user);
+        }
+      } finally {
+        setIsCheckingAuth(false);
+      }
+    };
+    checkAuth();
+  }, []);
 
   const [selectedTopicIndex, setSelectedTopicIndex] = useState<number | null>(null);
   const [isChatbotOpen, setIsChatbotOpen] = useState(false);
@@ -82,15 +111,20 @@ function App() {
     saveToStorage(STORAGE_KEYS.leaderboard, leaderboard);
   }, [leaderboard]);
 
-  const handleLogin = (userId: string) => {
-    const user = users.find(u => u.id === userId);
-    if (user) {
-      setCurrentUser(user);
-      localStorage.setItem(STORAGE_KEYS.currentUser, userId);
-    }
+  const handleLogin = (user: User) => {
+    setCurrentUser(user);
+    localStorage.setItem(STORAGE_KEYS.currentUser, user.id);
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    try {
+      await fetch('/api/auth/logout', { 
+        method: 'POST', 
+        credentials: 'include' 
+      });
+    } catch (err) {
+      console.error('Logout error:', err);
+    }
     setCurrentUser(null);
     localStorage.removeItem(STORAGE_KEYS.currentUser);
     setShowCreatorDashboard(false);
@@ -193,11 +227,27 @@ function App() {
     });
   };
 
+  if (isCheckingAuth) {
+    return (
+      <QueryClientProvider client={queryClient}>
+        <TooltipProvider>
+          <div className="min-h-screen bg-background flex items-center justify-center">
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+              <p className="text-muted-foreground">Loading...</p>
+            </div>
+          </div>
+          <Toaster />
+        </TooltipProvider>
+      </QueryClientProvider>
+    );
+  }
+
   if (!currentUser) {
     return (
       <QueryClientProvider client={queryClient}>
         <TooltipProvider>
-          <Login onLogin={handleLogin} users={users} />
+          <Login onLogin={handleLogin} />
           <Toaster />
         </TooltipProvider>
       </QueryClientProvider>
