@@ -1,7 +1,14 @@
-import type { Express } from "express";
+import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { GoogleGenAI } from "@google/genai";
+import { loginSchema, registerSchema } from "@shared/schema";
+
+declare module "express-session" {
+  interface SessionData {
+    userId: string;
+  }
+}
 
 const ai = new GoogleGenAI({
   apiKey: process.env.AI_INTEGRATIONS_GEMINI_API_KEY!,
@@ -276,6 +283,291 @@ Requirements:
     } catch (error: any) {
       console.error("Course generation error:", error);
       res.status(500).json({ error: error.message || "Failed to generate course" });
+    }
+  });
+
+  app.post("/api/auth/register", async (req, res) => {
+    try {
+      const parseResult = registerSchema.safeParse(req.body);
+      if (!parseResult.success) {
+        return res.status(400).json({ error: "Invalid input", details: parseResult.error.flatten() });
+      }
+
+      const { name, email, password, role } = parseResult.data;
+      
+      const existingUser = await storage.getUserByEmail(email);
+      if (existingUser) {
+        return res.status(409).json({ error: "User with this email already exists" });
+      }
+
+      const user = await storage.createUser({
+        name,
+        email,
+        password,
+        role: role || "Learner",
+        groupIds: [],
+      });
+
+      req.session.userId = user.id;
+      
+      res.status(201).json({
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        groupIds: user.groupIds,
+      });
+    } catch (error: any) {
+      console.error("Registration error:", error);
+      res.status(500).json({ error: error.message || "Failed to register" });
+    }
+  });
+
+  app.post("/api/auth/login", async (req, res) => {
+    try {
+      const parseResult = loginSchema.safeParse(req.body);
+      if (!parseResult.success) {
+        return res.status(400).json({ error: "Invalid input", details: parseResult.error.flatten() });
+      }
+
+      const { email, password } = parseResult.data;
+      
+      const user = await storage.getUserByEmail(email);
+      if (!user) {
+        return res.status(401).json({ error: "Invalid email or password" });
+      }
+
+      const isValidPassword = await storage.comparePassword(password, user.password);
+      if (!isValidPassword) {
+        return res.status(401).json({ error: "Invalid email or password" });
+      }
+
+      req.session.userId = user.id;
+      
+      res.json({
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        groupIds: user.groupIds,
+      });
+    } catch (error: any) {
+      console.error("Login error:", error);
+      res.status(500).json({ error: error.message || "Failed to login" });
+    }
+  });
+
+  app.post("/api/auth/logout", (req, res) => {
+    req.session.destroy((err) => {
+      if (err) {
+        return res.status(500).json({ error: "Failed to logout" });
+      }
+      res.clearCookie("connect.sid");
+      res.json({ message: "Logged out successfully" });
+    });
+  });
+
+  app.get("/api/auth/me", async (req, res) => {
+    try {
+      if (!req.session.userId) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+
+      const user = await storage.getUser(req.session.userId);
+      if (!user) {
+        return res.status(401).json({ error: "User not found" });
+      }
+
+      res.json({
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        groupIds: user.groupIds,
+      });
+    } catch (error: any) {
+      console.error("Auth check error:", error);
+      res.status(500).json({ error: error.message || "Failed to check auth" });
+    }
+  });
+
+  app.get("/api/users", async (req, res) => {
+    try {
+      const users = await storage.getAllUsers();
+      res.json(users.map(u => ({
+        id: u.id,
+        name: u.name,
+        email: u.email,
+        role: u.role,
+        groupIds: u.groupIds,
+      })));
+    } catch (error: any) {
+      console.error("Get users error:", error);
+      res.status(500).json({ error: error.message || "Failed to get users" });
+    }
+  });
+
+  app.get("/api/groups", async (req, res) => {
+    try {
+      const groups = await storage.getAllGroups();
+      res.json(groups);
+    } catch (error: any) {
+      console.error("Get groups error:", error);
+      res.status(500).json({ error: error.message || "Failed to get groups" });
+    }
+  });
+
+  app.post("/api/groups", async (req, res) => {
+    try {
+      const { name } = req.body;
+      if (!name) {
+        return res.status(400).json({ error: "Name is required" });
+      }
+      const group = await storage.createGroup({ name });
+      res.status(201).json(group);
+    } catch (error: any) {
+      console.error("Create group error:", error);
+      res.status(500).json({ error: error.message || "Failed to create group" });
+    }
+  });
+
+  app.get("/api/topics", async (req, res) => {
+    try {
+      const topics = await storage.getAllTopics();
+      res.json(topics);
+    } catch (error: any) {
+      console.error("Get topics error:", error);
+      res.status(500).json({ error: error.message || "Failed to get topics" });
+    }
+  });
+
+  app.get("/api/topics/:id", async (req, res) => {
+    try {
+      const topic = await storage.getTopic(req.params.id);
+      if (!topic) {
+        return res.status(404).json({ error: "Topic not found" });
+      }
+      res.json(topic);
+    } catch (error: any) {
+      console.error("Get topic error:", error);
+      res.status(500).json({ error: error.message || "Failed to get topic" });
+    }
+  });
+
+  app.post("/api/topics", async (req, res) => {
+    try {
+      const topic = await storage.createTopic(req.body);
+      res.status(201).json(topic);
+    } catch (error: any) {
+      console.error("Create topic error:", error);
+      res.status(500).json({ error: error.message || "Failed to create topic" });
+    }
+  });
+
+  app.put("/api/topics/:id", async (req, res) => {
+    try {
+      const topic = await storage.updateTopic(req.params.id, req.body);
+      if (!topic) {
+        return res.status(404).json({ error: "Topic not found" });
+      }
+      res.json(topic);
+    } catch (error: any) {
+      console.error("Update topic error:", error);
+      res.status(500).json({ error: error.message || "Failed to update topic" });
+    }
+  });
+
+  app.delete("/api/topics/:id", async (req, res) => {
+    try {
+      const deleted = await storage.deleteTopic(req.params.id);
+      if (!deleted) {
+        return res.status(404).json({ error: "Topic not found" });
+      }
+      res.json({ message: "Topic deleted" });
+    } catch (error: any) {
+      console.error("Delete topic error:", error);
+      res.status(500).json({ error: error.message || "Failed to delete topic" });
+    }
+  });
+
+  app.get("/api/progress/:userId", async (req, res) => {
+    try {
+      const progress = await storage.getUserProgressAll(req.params.userId);
+      res.json(progress);
+    } catch (error: any) {
+      console.error("Get progress error:", error);
+      res.status(500).json({ error: error.message || "Failed to get progress" });
+    }
+  });
+
+  app.post("/api/progress", async (req, res) => {
+    try {
+      const { userId, topicId, status, quizScore, quizTotal } = req.body;
+      if (!userId || !topicId) {
+        return res.status(400).json({ error: "userId and topicId are required" });
+      }
+      const progress = await storage.createOrUpdateProgress({
+        userId,
+        topicId,
+        status: status || "Pending",
+        quizScore,
+        quizTotal,
+      });
+      
+      if (status === "Completed" && quizScore) {
+        await storage.updateLeaderboardPoints(userId, quizScore * 10);
+      }
+      
+      res.json(progress);
+    } catch (error: any) {
+      console.error("Update progress error:", error);
+      res.status(500).json({ error: error.message || "Failed to update progress" });
+    }
+  });
+
+  app.get("/api/leaderboard", async (req, res) => {
+    try {
+      const leaderboard = await storage.getLeaderboard();
+      
+      const usersMap = new Map<string, { name: string }>();
+      const allUsers = await storage.getAllUsers();
+      allUsers.forEach(u => usersMap.set(u.id, { name: u.name }));
+      
+      const result = leaderboard.map((entry, index) => ({
+        userId: entry.userId,
+        name: usersMap.get(entry.userId)?.name || "Unknown",
+        points: entry.points,
+        rank: index + 1,
+      }));
+      
+      res.json(result);
+    } catch (error: any) {
+      console.error("Get leaderboard error:", error);
+      res.status(500).json({ error: error.message || "Failed to get leaderboard" });
+    }
+  });
+
+  app.get("/api/categories", async (req, res) => {
+    try {
+      const categories = await storage.getCategories();
+      res.json(categories.map(c => c.name));
+    } catch (error: any) {
+      console.error("Get categories error:", error);
+      res.status(500).json({ error: error.message || "Failed to get categories" });
+    }
+  });
+
+  app.post("/api/categories", async (req, res) => {
+    try {
+      const { name } = req.body;
+      if (!name) {
+        return res.status(400).json({ error: "Name is required" });
+      }
+      const category = await storage.createCategory({ name });
+      res.status(201).json(category);
+    } catch (error: any) {
+      console.error("Create category error:", error);
+      res.status(500).json({ error: error.message || "Failed to create category" });
     }
   });
 

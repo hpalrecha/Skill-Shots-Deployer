@@ -2,6 +2,8 @@ import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { serveStatic } from "./static";
 import { createServer } from "http";
+import session from "express-session";
+import connectPgSimple from "connect-pg-simple";
 
 const app = express();
 const httpServer = createServer(app);
@@ -11,6 +13,25 @@ declare module "http" {
     rawBody: unknown;
   }
 }
+
+const PgSession = connectPgSimple(session);
+
+app.use(
+  session({
+    store: new PgSession({
+      conString: process.env.DATABASE_URL,
+      createTableIfMissing: true,
+    }),
+    secret: process.env.SESSION_SECRET || "skillshots-secret-key-2024",
+    resave: false,
+    saveUninitialized: false,
+    cookie: {
+      secure: process.env.NODE_ENV === "production",
+      httpOnly: true,
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+    },
+  })
+);
 
 app.use(
   express.json({
