@@ -9,6 +9,7 @@ import { User, Topic, Group, LeaderboardEntry, TopicStatus } from "./types";
 
 import Login from "./components/Login";
 import Header from "./components/Header";
+import Home from "./components/Home";
 import Dashboard from "./components/Dashboard";
 import TopicSwiperView from "./components/TopicSwiperView";
 import Chatbot from "./components/Chatbot";
@@ -595,7 +596,7 @@ function App() {
               </main>
             </Route>
 
-            {/* Learning Dashboard - Default route for all users */}
+            {/* Home - Default route for all users */}
             <Route path="/">
               <main className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8 py-8">
                 {isLoadingData ? (
@@ -606,13 +607,10 @@ function App() {
                     </div>
                   </div>
                 ) : (
-                  <Dashboard
+                  <Home
                     topics={accessibleTopics}
-                    categories={categories}
-                    onSelectTopic={handleSelectTopic}
-                    groups={groups}
-                    leaderboard={leaderboard}
                     currentUser={currentUser}
+                    leaderboard={leaderboard}
                   />
                 )}
               </main>
