@@ -1,7 +1,7 @@
 import { useRef, useEffect } from 'react';
 import { Topic, Group } from '../types';
 import TopicView from './TopicView';
-import { XIcon } from './icons';
+import { ArrowLeftIcon, SkillShotsLogo } from './icons';
 import { Button } from '@/components/ui/button';
 
 interface TopicSwiperViewProps {
@@ -31,28 +31,38 @@ export default function TopicSwiperView({
   }, [initialTopicIndex, topics]);
 
   return (
-    <div className="fixed inset-0 bg-background z-50 animate-in fade-in duration-300" data-testid="container-topic-swiper">
-      <Button
-        variant="secondary"
-        size="icon"
-        onClick={onClose}
-        aria-label="Close topics view"
-        className="fixed top-4 right-4 z-[60] bg-card/70 backdrop-blur-sm shadow-lg"
-        data-testid="button-close-swiper"
-      >
-        <XIcon className="h-6 w-6" />
-      </Button>
+    <div className="fixed inset-0 bg-background z-50 animate-in fade-in duration-300 flex flex-col" data-testid="container-topic-swiper">
+      <header className="sticky top-0 z-[60] bg-background/95 backdrop-blur-sm border-b px-4 py-3 flex items-center justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={onClose}
+            aria-label="Back to dashboard"
+            data-testid="button-close-swiper"
+          >
+            <ArrowLeftIcon className="h-5 w-5" />
+          </Button>
+          <div className="flex items-center gap-2">
+            <SkillShotsLogo className="h-6 w-6 text-primary" />
+            <span className="font-semibold text-foreground">SkillShots</span>
+          </div>
+        </div>
+        <div className="text-sm text-muted-foreground">
+          Course {initialTopicIndex + 1} of {topics.length}
+        </div>
+      </header>
 
       <div
         ref={swiperRef}
-        className="h-full w-full overflow-y-auto snap-y snap-mandatory"
+        className="flex-1 overflow-y-auto snap-y snap-mandatory"
       >
         {topics.map(topic => (
           <div
             key={topic.id}
-            className="h-screen w-screen snap-start flex items-center justify-center p-4"
+            className="min-h-[calc(100vh-60px)] snap-start flex items-start justify-center p-4 pt-6"
           >
-            <div className="h-full w-full max-w-5xl mx-auto">
+            <div className="w-full max-w-4xl mx-auto">
               <TopicView
                 topic={topic}
                 onMarkComplete={onMarkComplete}
