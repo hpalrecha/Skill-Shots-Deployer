@@ -58,6 +58,7 @@ export default function CreatorDashboard({
 
   const [contentBlocks, setContentBlocks] = useState<ContentBlock[]>([]);
   const [uploadModeMap, setUploadModeMap] = useState<Record<number, boolean>>({});
+  const [uploadingBlocks, setUploadingBlocks] = useState<Record<number, boolean>>({});
 
   const [shareMode, setShareMode] = useState<'all' | 'departments' | 'users'>('all');
   const [selectedGroups, setSelectedGroups] = useState<string[]>([]);
@@ -188,6 +189,7 @@ export default function CreatorDashboard({
 
   const handleFileUpload = (index: number, file: File | null) => {
     if (!file) return;
+    setUploadingBlocks(prev => ({ ...prev, [index]: true }));
     const reader = new FileReader();
     reader.onload = (e) => {
       const result = e.target?.result as string;
@@ -195,9 +197,16 @@ export default function CreatorDashboard({
       if (!contentBlocks[index].title) {
         updateBlock(index, 'title', file.name);
       }
+      setUploadingBlocks(prev => ({ ...prev, [index]: false }));
+    };
+    reader.onerror = () => {
+      setUploadingBlocks(prev => ({ ...prev, [index]: false }));
+      alert('Failed to upload file. Please try again.');
     };
     reader.readAsDataURL(file);
   };
+
+  const isAnyUploading = Object.values(uploadingBlocks).some(v => v);
 
   const addAiResource = () => {
     if (!newResourceUrl) return;
@@ -470,11 +479,26 @@ export default function CreatorDashboard({
                             </Button>
                           </div>
                           {uploadModeMap[index] ? (
-                            <Input
-                              type="file"
-                              onChange={e => handleFileUpload(index, e.target.files?.[0] || null)}
-                              accept={block.type === ContentType.Image ? 'image/*' : block.type === ContentType.Document ? '.pdf,.doc,.docx' : 'video/*'}
-                            />
+                            <div className="space-y-2">
+                              <Input
+                                type="file"
+                                onChange={e => handleFileUpload(index, e.target.files?.[0] || null)}
+                                accept={block.type === ContentType.Image ? 'image/*' : block.type === ContentType.Document ? '.pdf,.doc,.docx' : 'video/*'}
+                                disabled={uploadingBlocks[index]}
+                              />
+                              {uploadingBlocks[index] && (
+                                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                  <LoaderIcon className="h-4 w-4 animate-spin" />
+                                  Processing file...
+                                </div>
+                              )}
+                              {block.content && !uploadingBlocks[index] && (
+                                <div className="flex items-center gap-2 text-sm text-green-600">
+                                  <CheckIcon className="h-4 w-4" />
+                                  File loaded successfully
+                                </div>
+                              )}
+                            </div>
                           ) : (
                             <Input
                               value={block.content}
@@ -545,9 +569,19 @@ export default function CreatorDashboard({
                   )}
                 </div>
 
-                <div className="flex justify-end">
-                  <Button type="submit" data-testid="button-save-topic">
-                    <CheckIcon className="h-4 w-4 mr-2" />
+                <div className="flex justify-end gap-2 items-center">
+                  {isAnyUploading && (
+                    <span className="text-sm text-muted-foreground flex items-center gap-2">
+                      <LoaderIcon className="h-4 w-4 animate-spin" />
+                      Uploading file...
+                    </span>
+                  )}
+                  <Button type="submit" disabled={isAnyUploading} data-testid="button-save-topic">
+                    {isAnyUploading ? (
+                      <LoaderIcon className="h-4 w-4 mr-2 animate-spin" />
+                    ) : (
+                      <CheckIcon className="h-4 w-4 mr-2" />
+                    )}
                     {editTopicId ? 'Update Course' : 'Create Course'}
                   </Button>
                 </div>
