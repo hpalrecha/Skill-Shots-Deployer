@@ -2,7 +2,8 @@ import { useState, useMemo } from 'react';
 import { Topic, QuizData, ContentType, ContentBlock, Group } from '../types';
 import { generateQuiz, analyzeVideoContent, askQuestionAboutTopic } from '../services/geminiService';
 import Quiz from './Quiz';
-import { SparklesIcon, LoaderIcon, FileTextIcon, VideoIcon, UsersIcon, MessageSquareIcon, SendIcon, ClipboardListIcon, CheckIcon } from './icons';
+import { SparklesIcon, LoaderIcon, FileTextIcon, VideoIcon, UsersIcon, MessageSquareIcon, SendIcon, ClipboardListIcon, CheckIcon, ImageIcon } from './icons';
+import { Eye, Download, ExternalLink } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
@@ -135,10 +136,35 @@ export default function TopicView({ topic, onMarkComplete, groups }: TopicViewPr
                 return <p key={index} className="whitespace-pre-line leading-relaxed text-foreground">{block.content}</p>;
               case ContentType.Image:
                 return (
-                  <figure key={index} className="my-8">
-                    <img src={block.content} alt={block.title || 'Topic Image'} className="w-full rounded-xl shadow-lg" />
-                    {block.title && <figcaption className="text-center text-sm text-muted-foreground mt-3 italic">{block.title}</figcaption>}
-                  </figure>
+                  <Card key={index} className="my-8 p-4">
+                    <div className="relative">
+                      <img src={block.content} alt={block.title || 'Topic Image'} className="w-full rounded-lg" />
+                      <div className="absolute top-2 right-2 flex gap-2">
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          onClick={() => {
+                            const newWindow = window.open();
+                            if (newWindow) {
+                              newWindow.document.write(`
+                                <html>
+                                  <head><title>${block.title || 'Image'}</title></head>
+                                  <body style="margin:0;padding:20px;background:#000;display:flex;justify-content:center;align-items:center;min-height:100vh;">
+                                    <img src="${block.content}" style="max-width:100%;max-height:100vh;object-fit:contain;" />
+                                  </body>
+                                </html>
+                              `);
+                            }
+                          }}
+                          data-testid={`button-view-image-${index}`}
+                        >
+                          <Eye className="h-4 w-4 mr-1" />
+                          View Full
+                        </Button>
+                      </div>
+                    </div>
+                    {block.title && <p className="text-center text-sm text-muted-foreground mt-3">{block.title}</p>}
+                  </Card>
                 );
               case ContentType.Video:
                 const videoId = block.content;
@@ -186,21 +212,79 @@ export default function TopicView({ topic, onMarkComplete, groups }: TopicViewPr
                   </Card>
                 );
               case ContentType.Document:
+                const isPdf = block.content?.startsWith('data:application/pdf') || block.title?.toLowerCase().endsWith('.pdf');
+                const hasDataUrl = block.content?.startsWith('data:');
                 return (
-                  <div key={index} className="my-6">
-                    <a href={block.content} target="_blank" rel="noopener noreferrer" className="flex items-center p-4 bg-card rounded-xl border border-border hover:border-primary hover:shadow-md transition-all no-underline group gap-4">
-                      <div className="p-3 bg-primary/10 rounded-lg group-hover:bg-primary/20 transition-colors">
+                  <Card key={index} className="my-6 p-4">
+                    <div className="flex items-center gap-4">
+                      <div className="p-3 bg-primary/10 rounded-lg">
                         <FileTextIcon className="h-8 w-8 text-primary" />
                       </div>
-                      <div>
-                        <span className="block font-bold text-foreground group-hover:text-primary transition-colors">Reference Document</span>
-                        <span className="block text-sm text-muted-foreground mt-0.5">{block.title || 'Download PDF'}</span>
-                        {block.content.startsWith('data:') && (
-                          <Badge variant="secondary" className="mt-1 text-xs">Uploaded File (AI Readable)</Badge>
+                      <div className="flex-1">
+                        <span className="block font-bold text-foreground">Reference Document</span>
+                        <span className="block text-sm text-muted-foreground mt-0.5">{block.title || 'Document'}</span>
+                        {hasDataUrl && (
+                          <Badge variant="secondary" className="mt-1 text-xs">Uploaded File</Badge>
                         )}
                       </div>
-                    </a>
-                  </div>
+                      <div className="flex gap-2">
+                        {hasDataUrl && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              const newWindow = window.open();
+                              if (newWindow) {
+                                newWindow.document.write(`
+                                  <html>
+                                    <head><title>${block.title || 'Document'}</title></head>
+                                    <body style="margin:0;padding:0;">
+                                      ${isPdf 
+                                        ? `<embed src="${block.content}" type="application/pdf" width="100%" height="100%" style="position:absolute;inset:0;" />`
+                                        : `<img src="${block.content}" style="max-width:100%;height:auto;" />`
+                                      }
+                                    </body>
+                                  </html>
+                                `);
+                              }
+                            }}
+                            data-testid={`button-view-doc-${index}`}
+                          >
+                            <Eye className="h-4 w-4 mr-1" />
+                            View
+                          </Button>
+                        )}
+                        {hasDataUrl && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              const link = document.createElement('a');
+                              link.href = block.content;
+                              link.download = block.title || 'document';
+                              link.click();
+                            }}
+                            data-testid={`button-download-doc-${index}`}
+                          >
+                            <Download className="h-4 w-4 mr-1" />
+                            Download
+                          </Button>
+                        )}
+                        {!hasDataUrl && block.content && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            asChild
+                          >
+                            <a href={block.content} target="_blank" rel="noopener noreferrer">
+                              <ExternalLink className="h-4 w-4 mr-1" />
+                              Open
+                            </a>
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  </Card>
                 );
               default:
                 return null;
