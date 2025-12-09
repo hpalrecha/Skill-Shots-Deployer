@@ -1,3 +1,4 @@
+import { Link, useLocation } from 'wouter';
 import { User, UserRole } from '../types';
 import { SkillShotsLogo, UserCircleIcon, LogOutIcon, EditIcon, ClipboardListIcon } from './icons';
 import { Button } from '@/components/ui/button';
@@ -5,39 +6,62 @@ import { Button } from '@/components/ui/button';
 interface HeaderProps {
   user: User;
   onLogout: () => void;
-  onAdminClick: () => void;
-  showingAdminPortal?: boolean;
+  currentRoute: string;
 }
 
-export default function Header({ user, onLogout, onAdminClick, showingAdminPortal = false }: HeaderProps) {
+export default function Header({ user, onLogout, currentRoute }: HeaderProps) {
+  const [, setLocation] = useLocation();
   const isAdmin = user.role === UserRole.Admin;
   const isCreator = user.role === UserRole.Creator;
   const canAccessAdmin = isAdmin || isCreator;
 
+  const isOnAdminRoute = currentRoute === '/admin';
+  const isOnCreatorRoute = currentRoute === '/creatorstudio';
+  const isOnManagementRoute = isOnAdminRoute || isOnCreatorRoute;
+
+  const getAdminButtonLabel = () => {
+    if (isAdmin) {
+      return isOnManagementRoute ? "Back to Home" : "Admin Portal";
+    }
+    return isOnManagementRoute ? "Back to Home" : "Creator Studio";
+  };
+
+  const handleAdminClick = () => {
+    if (isOnManagementRoute) {
+      setLocation('/');
+    } else {
+      setLocation(isAdmin ? '/admin' : '/creatorstudio');
+    }
+  };
+
+  const handleLogoClick = () => {
+    setLocation('/');
+  };
+
   return (
     <header className="bg-card border-b border-border sticky top-0 z-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8 py-3 flex justify-between items-center gap-4 flex-wrap">
-        <div className="flex items-center space-x-2 cursor-pointer" onClick={() => window.location.reload()} data-testid="link-home">
+        <div className="flex items-center space-x-2 cursor-pointer" onClick={handleLogoClick} data-testid="link-home">
           <SkillShotsLogo className="h-9 w-9 text-primary" />
           <h1 className="text-2xl font-bold text-foreground tracking-tight">SkillShots</h1>
         </div>
         <div className="flex items-center gap-4 flex-wrap">
           {canAccessAdmin && (
             <Button
-              variant={showingAdminPortal ? "default" : "secondary"}
-              onClick={onAdminClick}
+              variant={isOnManagementRoute ? "default" : "secondary"}
+              onClick={handleAdminClick}
               className="hidden sm:flex items-center"
               data-testid="button-admin-portal"
             >
               {isAdmin ? (
                 <>
                   <ClipboardListIcon className="h-4 w-4 mr-1.5" />
-                  {showingAdminPortal ? "Back to Home" : "Admin Portal"}
+                  {getAdminButtonLabel()}
                 </>
               ) : (
                 <>
                   <EditIcon className="h-4 w-4 mr-1.5" />
-                  {showingAdminPortal ? "Back to Home" : "Creator Studio"}
+                  {getAdminButtonLabel()}
                 </>
               )}
             </Button>

@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { Route, Switch, useLocation, useRoute, Redirect } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
@@ -26,9 +27,8 @@ function App() {
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
   const [isLoadingData, setIsLoadingData] = useState(false);
 
-  const [selectedTopicIndex, setSelectedTopicIndex] = useState<number | null>(null);
   const [isChatbotOpen, setIsChatbotOpen] = useState(false);
-  const [showCreatorDashboard, setShowCreatorDashboard] = useState(false);
+  const [location, setLocation] = useLocation();
 
   const fetchData = useCallback(async () => {
     setIsLoadingData(true);
@@ -121,13 +121,11 @@ function App() {
     setCategories([]);
     setLeaderboard([]);
     setUsers([]);
-    setShowCreatorDashboard(false);
+    setLocation('/');
   };
 
   const handleSelectTopic = (topic: Topic) => {
-    const accessibleTopics = getAccessibleTopics();
-    const index = accessibleTopics.findIndex(t => t.id === topic.id);
-    setSelectedTopicIndex(index);
+    setLocation(`/topic/${topic.id}`);
   };
 
   const handleMarkComplete = async (topicId: string) => {
@@ -167,7 +165,7 @@ function App() {
       console.error('Error marking complete:', err);
     }
     
-    setSelectedTopicIndex(null);
+    setLocation('/');
   };
 
   const handleAddTopic = async (topic: Topic) => {
@@ -424,6 +422,41 @@ function App() {
 
   const accessibleTopics = getAccessibleTopics();
 
+  // Determine current route context
+  const isAdminRoute = location === '/admin';
+  const isCreatorRoute = location === '/creatorstudio';
+  const isAdminOrCreatorRoute = isAdminRoute || isCreatorRoute;
+
+  // Role-based route access
+  const canAccessAdmin = currentUser.role === 'Admin';
+  const canAccessCreator = currentUser.role === 'Creator' || currentUser.role === 'Admin';
+
+  // Topic view wrapper component
+  const TopicViewRoute = () => {
+    const [, params] = useRoute('/topic/:id');
+    const topicId = params?.id;
+    
+    if (!topicId) {
+      return <Redirect to="/" />;
+    }
+    
+    const topicIndex = accessibleTopics.findIndex(t => t.id === topicId);
+    
+    if (topicIndex === -1) {
+      return <Redirect to="/" />;
+    }
+    
+    return (
+      <TopicSwiperView
+        topics={accessibleTopics}
+        initialTopicIndex={topicIndex}
+        onClose={() => setLocation('/')}
+        onMarkComplete={handleMarkComplete}
+        groups={groups}
+      />
+    );
+  };
+
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
@@ -431,58 +464,110 @@ function App() {
           <Header 
             user={currentUser} 
             onLogout={handleLogout}
-            onAdminClick={() => setShowCreatorDashboard(!showCreatorDashboard)}
-            showingAdminPortal={showCreatorDashboard}
+            currentRoute={location}
           />
 
-          <main className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8 py-8">
-            {isLoadingData ? (
-              <div className="flex items-center justify-center py-20">
-                <div className="text-center">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
-                  <p className="text-muted-foreground">Loading content...</p>
-                </div>
-              </div>
-            ) : showCreatorDashboard ? (
-              <CreatorDashboard
-                topics={topics}
-                users={users}
-                groups={groups}
-                categories={categories}
-                currentUser={currentUser}
-                onAddTopic={handleAddTopic}
-                onUpdateTopic={handleUpdateTopic}
-                onDeleteTopic={handleDeleteTopic}
-                onAddUser={handleAddUser}
-                onUpdateUser={handleUpdateUser}
-                onDeleteUser={handleDeleteUser}
-                onAddGroup={handleAddGroup}
-                onDeleteGroup={handleDeleteGroup}
-                onAddCategory={handleAddCategory}
-                onDeleteCategory={handleDeleteCategory}
-              />
-            ) : (
-              <Dashboard
-                topics={accessibleTopics}
-                categories={categories}
-                onSelectTopic={handleSelectTopic}
-                groups={groups}
-                leaderboard={leaderboard}
-                currentUser={currentUser}
-              />
-            )}
-          </main>
+          <Switch>
+            {/* Topic Swiper View - Full screen overlay */}
+            <Route path="/topic/:id">
+              <TopicViewRoute />
+            </Route>
 
-          {selectedTopicIndex !== null && (
-            <TopicSwiperView
-              topics={accessibleTopics}
-              initialTopicIndex={selectedTopicIndex}
-              onClose={() => setSelectedTopicIndex(null)}
-              onMarkComplete={handleMarkComplete}
-              groups={groups}
-            />
-          )}
+            {/* Admin Portal - Admin only */}
+            <Route path="/admin">
+              {canAccessAdmin ? (
+                <main className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8 py-8">
+                  {isLoadingData ? (
+                    <div className="flex items-center justify-center py-20">
+                      <div className="text-center">
+                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+                        <p className="text-muted-foreground">Loading content...</p>
+                      </div>
+                    </div>
+                  ) : (
+                    <CreatorDashboard
+                      topics={topics}
+                      users={users}
+                      groups={groups}
+                      categories={categories}
+                      currentUser={currentUser}
+                      onAddTopic={handleAddTopic}
+                      onUpdateTopic={handleUpdateTopic}
+                      onDeleteTopic={handleDeleteTopic}
+                      onAddUser={handleAddUser}
+                      onUpdateUser={handleUpdateUser}
+                      onDeleteUser={handleDeleteUser}
+                      onAddGroup={handleAddGroup}
+                      onDeleteGroup={handleDeleteGroup}
+                      onAddCategory={handleAddCategory}
+                      onDeleteCategory={handleDeleteCategory}
+                    />
+                  )}
+                </main>
+              ) : (
+                <Redirect to="/" />
+              )}
+            </Route>
 
+            {/* Creator Studio - Creator and Admin */}
+            <Route path="/creatorstudio">
+              {canAccessCreator ? (
+                <main className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8 py-8">
+                  {isLoadingData ? (
+                    <div className="flex items-center justify-center py-20">
+                      <div className="text-center">
+                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+                        <p className="text-muted-foreground">Loading content...</p>
+                      </div>
+                    </div>
+                  ) : (
+                    <CreatorDashboard
+                      topics={topics}
+                      users={users}
+                      groups={groups}
+                      categories={categories}
+                      currentUser={currentUser}
+                      onAddTopic={handleAddTopic}
+                      onUpdateTopic={handleUpdateTopic}
+                      onDeleteTopic={handleDeleteTopic}
+                      onAddUser={handleAddUser}
+                      onUpdateUser={handleUpdateUser}
+                      onDeleteUser={handleDeleteUser}
+                      onAddGroup={handleAddGroup}
+                      onDeleteGroup={handleDeleteGroup}
+                      onAddCategory={handleAddCategory}
+                      onDeleteCategory={handleDeleteCategory}
+                    />
+                  )}
+                </main>
+              ) : (
+                <Redirect to="/" />
+              )}
+            </Route>
+
+            {/* Learning Dashboard - Default route for all users */}
+            <Route path="/">
+              <main className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8 py-8">
+                {isLoadingData ? (
+                  <div className="flex items-center justify-center py-20">
+                    <div className="text-center">
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+                      <p className="text-muted-foreground">Loading content...</p>
+                    </div>
+                  </div>
+                ) : (
+                  <Dashboard
+                    topics={accessibleTopics}
+                    categories={categories}
+                    onSelectTopic={handleSelectTopic}
+                    groups={groups}
+                    leaderboard={leaderboard}
+                    currentUser={currentUser}
+                  />
+                )}
+              </main>
+            </Route>
+          </Switch>
         </div>
 
         <Chatbot
