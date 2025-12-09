@@ -94,43 +94,6 @@ export default function Dashboard({
             </p>
           </div>
 
-          {!lockMode && (
-            <div className="flex p-1 bg-muted rounded-lg self-start lg:self-auto flex-shrink-0 gap-1">
-              <Button
-                variant={viewMode === 'learning' ? 'default' : 'ghost'}
-                size="sm"
-                onClick={() => setViewMode('learning')}
-                className="flex items-center whitespace-nowrap"
-                data-testid="button-my-learning"
-              >
-                <BrainIcon className="h-4 w-4 mr-1.5" />
-                <span className="hidden sm:inline">Courses</span>
-                <span className="sm:hidden">Courses</span>
-              </Button>
-              <Button
-                variant={viewMode === 'sop' ? 'default' : 'ghost'}
-                size="sm"
-                onClick={() => setViewMode('sop')}
-                className="flex items-center whitespace-nowrap"
-                data-testid="button-sop-library"
-              >
-                <ClipboardListIcon className="h-4 w-4 mr-1.5" />
-                <span className="hidden sm:inline">SOP Library</span>
-                <span className="sm:hidden">SOPs</span>
-              </Button>
-              <Button
-                variant={viewMode === 'analytics' ? 'default' : 'ghost'}
-                size="sm"
-                onClick={() => setViewMode('analytics')}
-                className="flex items-center whitespace-nowrap"
-                data-testid="button-analytics"
-              >
-                <BarChart2 className="h-4 w-4 mr-1.5" />
-                <span className="hidden sm:inline">Analytics</span>
-                <span className="sm:hidden">Stats</span>
-              </Button>
-            </div>
-          )}
         </div>
 
         {viewMode !== 'analytics' && (
