@@ -243,11 +243,50 @@ function App() {
   };
 
   const handleAddUser = async (user: User) => {
-    setUsers(prev => [...prev, user]);
+    try {
+      const response = await fetch('/api/users', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          name: user.name,
+          email: user.email,
+          password: user.password || 'password123',
+          role: user.role,
+          groupIds: user.groupIds,
+        }),
+      });
+      
+      if (response.ok) {
+        const newUser = await response.json();
+        setUsers(prev => [...prev, newUser]);
+      }
+    } catch (err) {
+      console.error('Error adding user:', err);
+    }
   };
 
   const handleUpdateUser = async (user: User) => {
-    setUsers(prev => prev.map(u => u.id === user.id ? user : u));
+    try {
+      const response = await fetch(`/api/users/${user.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          name: user.name,
+          email: user.email,
+          role: user.role,
+          groupIds: user.groupIds,
+        }),
+      });
+      
+      if (response.ok) {
+        const updatedUser = await response.json();
+        setUsers(prev => prev.map(u => u.id === user.id ? updatedUser : u));
+      }
+    } catch (err) {
+      console.error('Error updating user:', err);
+    }
   };
 
   const handleDeleteUser = async (id: string) => {

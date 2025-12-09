@@ -407,6 +407,67 @@ Requirements:
     }
   });
 
+  app.post("/api/users", async (req, res) => {
+    try {
+      const { name, email, password, role, groupIds } = req.body;
+      if (!name || !email || !password) {
+        return res.status(400).json({ error: "Name, email, and password are required" });
+      }
+      const existingUser = await storage.getUserByEmail(email);
+      if (existingUser) {
+        return res.status(400).json({ error: "Email already exists" });
+      }
+      const bcrypt = await import("bcrypt");
+      const hashedPassword = await bcrypt.hash(password, 10);
+      const user = await storage.createUser({
+        name,
+        email,
+        password: hashedPassword,
+        role: role || "Learner",
+        groupIds: groupIds || [],
+      });
+      res.status(201).json({
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        groupIds: user.groupIds,
+      });
+    } catch (error: any) {
+      console.error("Create user error:", error);
+      res.status(500).json({ error: error.message || "Failed to create user" });
+    }
+  });
+
+  app.put("/api/users/:id", async (req, res) => {
+    try {
+      const { name, email, role, groupIds } = req.body;
+      const user = await storage.getUser(req.params.id);
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+      const updatedUser = await storage.updateUser(req.params.id, {
+        name: name ?? user.name,
+        email: email ?? user.email,
+        role: role ?? user.role,
+        groupIds: groupIds ?? user.groupIds,
+      });
+      if (!updatedUser) {
+        return res.status(404).json({ error: "User not found" });
+      }
+      res.json({
+        id: updatedUser.id,
+        name: updatedUser.name,
+        email: updatedUser.email,
+        role: updatedUser.role,
+        groupIds: updatedUser.groupIds,
+      });
+    } catch (error: any) {
+      console.error("Update user error:", error);
+      res.status(500).json({ error: error.message || "Failed to update user" });
+    }
+  });
+
   app.get("/api/groups", async (req, res) => {
     try {
       const groups = await storage.getAllGroups();
