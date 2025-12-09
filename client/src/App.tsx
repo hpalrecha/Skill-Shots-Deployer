@@ -1,11 +1,10 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 
 import { User, Topic, Group, LeaderboardEntry, TopicStatus } from "./types";
-import { INITIAL_USERS, INITIAL_TOPICS, INITIAL_GROUPS, INITIAL_CATEGORIES, MOCK_LEADERBOARD } from "./services/dataService";
 
 import Login from "./components/Login";
 import Header from "./components/Header";
@@ -16,41 +15,63 @@ import CreatorDashboard from "./components/CreatorDashboard";
 import { MessageSquareIcon } from "./components/icons";
 import { Button } from "@/components/ui/button";
 
-const STORAGE_KEYS = {
-  users: 'skillshots_users',
-  topics: 'skillshots_topics',
-  groups: 'skillshots_groups',
-  categories: 'skillshots_categories',
-  currentUser: 'skillshots_current_user',
-  leaderboard: 'skillshots_leaderboard'
-};
-
-function loadFromStorage<T>(key: string, defaultValue: T): T {
-  try {
-    const stored = localStorage.getItem(key);
-    return stored ? JSON.parse(stored) : defaultValue;
-  } catch {
-    return defaultValue;
-  }
-}
-
-function saveToStorage<T>(key: string, value: T): void {
-  try {
-    localStorage.setItem(key, JSON.stringify(value));
-  } catch (e) {
-    console.error('Failed to save to localStorage:', e);
-  }
-}
-
 function App() {
-  const [users, setUsers] = useState<User[]>(() => loadFromStorage(STORAGE_KEYS.users, INITIAL_USERS));
-  const [topics, setTopics] = useState<Topic[]>(() => loadFromStorage(STORAGE_KEYS.topics, INITIAL_TOPICS));
-  const [groups, setGroups] = useState<Group[]>(() => loadFromStorage(STORAGE_KEYS.groups, INITIAL_GROUPS));
-  const [categories, setCategories] = useState<string[]>(() => loadFromStorage(STORAGE_KEYS.categories, INITIAL_CATEGORIES));
-  const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>(() => loadFromStorage(STORAGE_KEYS.leaderboard, MOCK_LEADERBOARD));
+  const [topics, setTopics] = useState<Topic[]>([]);
+  const [groups, setGroups] = useState<Group[]>([]);
+  const [categories, setCategories] = useState<string[]>([]);
+  const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
+  const [users, setUsers] = useState<User[]>([]);
 
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
+  const [isLoadingData, setIsLoadingData] = useState(false);
+
+  const [selectedTopicIndex, setSelectedTopicIndex] = useState<number | null>(null);
+  const [isChatbotOpen, setIsChatbotOpen] = useState(false);
+  const [showCreatorDashboard, setShowCreatorDashboard] = useState(false);
+
+  const fetchData = useCallback(async () => {
+    setIsLoadingData(true);
+    try {
+      const [topicsRes, groupsRes, categoriesRes, leaderboardRes, usersRes] = await Promise.all([
+        fetch('/api/topics', { credentials: 'include' }),
+        fetch('/api/groups', { credentials: 'include' }),
+        fetch('/api/categories', { credentials: 'include' }),
+        fetch('/api/leaderboard', { credentials: 'include' }),
+        fetch('/api/users', { credentials: 'include' }),
+      ]);
+
+      if (topicsRes.ok) {
+        const topicsData = await topicsRes.json();
+        setTopics(topicsData.map((t: any) => ({
+          ...t,
+          status: TopicStatus.Pending,
+          sharedWith: t.sharedWith || [],
+          sharedWithUsers: t.sharedWithUsers || [],
+        })));
+      }
+      if (groupsRes.ok) {
+        const groupsData = await groupsRes.json();
+        setGroups(groupsData);
+      }
+      if (categoriesRes.ok) {
+        const categoriesData = await categoriesRes.json();
+        setCategories(categoriesData);
+      }
+      if (leaderboardRes.ok) {
+        const leaderboardData = await leaderboardRes.json();
+        setLeaderboard(leaderboardData);
+      }
+      if (usersRes.ok) {
+        const usersData = await usersRes.json();
+        setUsers(usersData);
+      }
+    } catch (err) {
+      console.error('Error fetching data:', err);
+    } finally {
+      setIsLoadingData(false);
+    }
+  }, []);
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -65,21 +86,9 @@ function App() {
             role: userData.role,
             groupIds: userData.groupIds || [],
           });
-        } else {
-          const userId = localStorage.getItem(STORAGE_KEYS.currentUser);
-          if (userId) {
-            const storedUsers = loadFromStorage<User[]>(STORAGE_KEYS.users, INITIAL_USERS);
-            const user = storedUsers.find(u => u.id === userId);
-            if (user) setCurrentUser(user);
-          }
         }
       } catch (err) {
-        const userId = localStorage.getItem(STORAGE_KEYS.currentUser);
-        if (userId) {
-          const storedUsers = loadFromStorage<User[]>(STORAGE_KEYS.users, INITIAL_USERS);
-          const user = storedUsers.find(u => u.id === userId);
-          if (user) setCurrentUser(user);
-        }
+        console.error('Auth check error:', err);
       } finally {
         setIsCheckingAuth(false);
       }
@@ -87,33 +96,14 @@ function App() {
     checkAuth();
   }, []);
 
-  const [selectedTopicIndex, setSelectedTopicIndex] = useState<number | null>(null);
-  const [isChatbotOpen, setIsChatbotOpen] = useState(false);
-  const [showCreatorDashboard, setShowCreatorDashboard] = useState(false);
-
   useEffect(() => {
-    saveToStorage(STORAGE_KEYS.users, users);
-  }, [users]);
-
-  useEffect(() => {
-    saveToStorage(STORAGE_KEYS.topics, topics);
-  }, [topics]);
-
-  useEffect(() => {
-    saveToStorage(STORAGE_KEYS.groups, groups);
-  }, [groups]);
-
-  useEffect(() => {
-    saveToStorage(STORAGE_KEYS.categories, categories);
-  }, [categories]);
-
-  useEffect(() => {
-    saveToStorage(STORAGE_KEYS.leaderboard, leaderboard);
-  }, [leaderboard]);
+    if (currentUser) {
+      fetchData();
+    }
+  }, [currentUser, fetchData]);
 
   const handleLogin = (user: User) => {
     setCurrentUser(user);
-    localStorage.setItem(STORAGE_KEYS.currentUser, user.id);
   };
 
   const handleLogout = async () => {
@@ -126,83 +116,183 @@ function App() {
       console.error('Logout error:', err);
     }
     setCurrentUser(null);
-    localStorage.removeItem(STORAGE_KEYS.currentUser);
+    setTopics([]);
+    setGroups([]);
+    setCategories([]);
+    setLeaderboard([]);
+    setUsers([]);
     setShowCreatorDashboard(false);
   };
 
   const handleSelectTopic = (topic: Topic) => {
-    const index = topics.findIndex(t => t.id === topic.id);
+    const accessibleTopics = getAccessibleTopics();
+    const index = accessibleTopics.findIndex(t => t.id === topic.id);
     setSelectedTopicIndex(index);
   };
 
-  const handleMarkComplete = (topicId: string) => {
-    setTopics(prev => prev.map(t => 
-      t.id === topicId ? { ...t, status: TopicStatus.Completed } : t
-    ));
+  const handleMarkComplete = async (topicId: string) => {
+    if (!currentUser) return;
     
-    if (currentUser) {
-      setLeaderboard(prev => {
-        const existing = prev.find(e => e.userId === currentUser.id);
-        if (existing) {
-          return prev.map(e => 
-            e.userId === currentUser.id 
-              ? { ...e, points: e.points + 100 } 
-              : e
-          ).sort((a, b) => b.points - a.points).map((e, i) => ({ ...e, rank: i + 1 }));
-        } else {
-          const newEntry: LeaderboardEntry = {
-            userId: currentUser.id,
-            name: currentUser.name,
-            points: 100,
-            rank: prev.length + 1
-          };
-          return [...prev, newEntry].sort((a, b) => b.points - a.points).map((e, i) => ({ ...e, rank: i + 1 }));
-        }
+    try {
+      await fetch('/api/progress', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          userId: currentUser.id,
+          topicId,
+          status: 'Completed',
+          quizScore: 10,
+          quizTotal: 10,
+        }),
       });
+
+      await fetch('/api/analytics/activity', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ userId: currentUser.id }),
+      });
+
+      setTopics(prev => prev.map(t => 
+        t.id === topicId ? { ...t, status: TopicStatus.Completed } : t
+      ));
+
+      const leaderboardRes = await fetch('/api/leaderboard', { credentials: 'include' });
+      if (leaderboardRes.ok) {
+        const leaderboardData = await leaderboardRes.json();
+        setLeaderboard(leaderboardData);
+      }
+    } catch (err) {
+      console.error('Error marking complete:', err);
     }
     
     setSelectedTopicIndex(null);
   };
 
-  const handleAddTopic = (topic: Topic) => {
-    setTopics(prev => [...prev, topic]);
-  };
-
-  const handleUpdateTopic = (topic: Topic) => {
-    setTopics(prev => prev.map(t => t.id === topic.id ? topic : t));
-  };
-
-  const handleDeleteTopic = (id: string) => {
-    if (window.confirm('Are you sure you want to delete this topic?')) {
-      setTopics(prev => prev.filter(t => t.id !== id));
+  const handleAddTopic = async (topic: Topic) => {
+    try {
+      const response = await fetch('/api/topics', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          title: topic.title,
+          category: topic.category,
+          authorId: topic.authorId,
+          readTime: topic.readTime,
+          content: topic.content,
+          imageUrl: topic.imageUrl,
+          sharedWith: topic.sharedWith,
+          sharedWithUsers: topic.sharedWithUsers,
+          isSop: topic.isSop,
+        }),
+      });
+      
+      if (response.ok) {
+        const newTopic = await response.json();
+        setTopics(prev => [...prev, { ...newTopic, status: TopicStatus.Pending }]);
+      }
+    } catch (err) {
+      console.error('Error adding topic:', err);
     }
   };
 
-  const handleAddUser = (user: User) => {
+  const handleUpdateTopic = async (topic: Topic) => {
+    try {
+      const response = await fetch(`/api/topics/${topic.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          title: topic.title,
+          category: topic.category,
+          readTime: topic.readTime,
+          content: topic.content,
+          imageUrl: topic.imageUrl,
+          sharedWith: topic.sharedWith,
+          sharedWithUsers: topic.sharedWithUsers,
+          isSop: topic.isSop,
+        }),
+      });
+      
+      if (response.ok) {
+        const updatedTopic = await response.json();
+        setTopics(prev => prev.map(t => t.id === topic.id ? { ...updatedTopic, status: t.status } : t));
+      }
+    } catch (err) {
+      console.error('Error updating topic:', err);
+    }
+  };
+
+  const handleDeleteTopic = async (id: string) => {
+    if (!window.confirm('Are you sure you want to delete this topic?')) return;
+    
+    try {
+      const response = await fetch(`/api/topics/${id}`, {
+        method: 'DELETE',
+        credentials: 'include',
+      });
+      
+      if (response.ok) {
+        setTopics(prev => prev.filter(t => t.id !== id));
+      }
+    } catch (err) {
+      console.error('Error deleting topic:', err);
+    }
+  };
+
+  const handleAddUser = async (user: User) => {
     setUsers(prev => [...prev, user]);
   };
 
-  const handleUpdateUser = (user: User) => {
+  const handleUpdateUser = async (user: User) => {
     setUsers(prev => prev.map(u => u.id === user.id ? user : u));
   };
 
-  const handleDeleteUser = (id: string) => {
-    if (window.confirm('Are you sure you want to delete this user?')) {
-      setUsers(prev => prev.filter(u => u.id !== id));
-    }
+  const handleDeleteUser = async (id: string) => {
+    if (!window.confirm('Are you sure you want to delete this user?')) return;
+    setUsers(prev => prev.filter(u => u.id !== id));
   };
 
-  const handleAddGroup = (group: Group) => {
-    setGroups(prev => [...prev, group]);
+  const handleAddGroup = async (group: Group) => {
+    try {
+      const response = await fetch('/api/groups', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ name: group.name }),
+      });
+      
+      if (response.ok) {
+        const newGroup = await response.json();
+        setGroups(prev => [...prev, newGroup]);
+      }
+    } catch (err) {
+      console.error('Error adding group:', err);
+    }
   };
 
   const handleDeleteGroup = (id: string) => {
     setGroups(prev => prev.filter(g => g.id !== id));
   };
 
-  const handleAddCategory = (cat: string) => {
-    if (!categories.includes(cat)) {
-      setCategories(prev => [...prev, cat]);
+  const handleAddCategory = async (cat: string) => {
+    if (categories.includes(cat)) return;
+    
+    try {
+      const response = await fetch('/api/categories', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ name: cat }),
+      });
+      
+      if (response.ok) {
+        setCategories(prev => [...prev, cat]);
+      }
+    } catch (err) {
+      console.error('Error adding category:', err);
     }
   };
 
@@ -212,15 +302,20 @@ function App() {
 
   const getAccessibleTopics = (): Topic[] => {
     if (!currentUser) return [];
+    
+    if (currentUser.role === 'Creator' || currentUser.role === 'Admin') {
+      return topics;
+    }
+    
     return topics.filter(topic => {
       if (topic.sharedWithUsers && topic.sharedWithUsers.includes(currentUser.id)) {
         return true;
       }
-      if (topic.sharedWith.some(groupId => currentUser.groupIds.includes(groupId))) {
+      if (topic.sharedWith && topic.sharedWith.some(groupId => currentUser.groupIds.includes(groupId))) {
         return true;
       }
       const allEmployeesGroup = groups.find(g => g.name === 'All Employees');
-      if (allEmployeesGroup && topic.sharedWith.includes(allEmployeesGroup.id)) {
+      if (allEmployeesGroup && topic.sharedWith && topic.sharedWith.includes(allEmployeesGroup.id)) {
         return true;
       }
       return false;
@@ -267,7 +362,14 @@ function App() {
           />
 
           <main className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8 py-8">
-            {showCreatorDashboard ? (
+            {isLoadingData ? (
+              <div className="flex items-center justify-center py-20">
+                <div className="text-center">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+                  <p className="text-muted-foreground">Loading content...</p>
+                </div>
+              </div>
+            ) : showCreatorDashboard ? (
               <CreatorDashboard
                 topics={topics}
                 users={users}
