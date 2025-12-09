@@ -1,15 +1,18 @@
 import { User, UserRole } from '../types';
-import { SkillShotsLogo, UserCircleIcon, LogOutIcon, EditIcon } from './icons';
+import { SkillShotsLogo, UserCircleIcon, LogOutIcon, EditIcon, ClipboardListIcon } from './icons';
 import { Button } from '@/components/ui/button';
 
 interface HeaderProps {
   user: User;
   onLogout: () => void;
   onAdminClick: () => void;
+  showingAdminPortal?: boolean;
 }
 
-export default function Header({ user, onLogout, onAdminClick }: HeaderProps) {
+export default function Header({ user, onLogout, onAdminClick, showingAdminPortal = false }: HeaderProps) {
+  const isAdmin = user.role === UserRole.Admin;
   const isCreator = user.role === UserRole.Creator;
+  const canAccessAdmin = isAdmin || isCreator;
 
   return (
     <header className="bg-card border-b border-border sticky top-0 z-50">
@@ -19,15 +22,24 @@ export default function Header({ user, onLogout, onAdminClick }: HeaderProps) {
           <h1 className="text-2xl font-bold text-foreground tracking-tight">SkillShots</h1>
         </div>
         <div className="flex items-center gap-4 flex-wrap">
-          {isCreator && (
+          {canAccessAdmin && (
             <Button
-              variant="secondary"
+              variant={showingAdminPortal ? "default" : "secondary"}
               onClick={onAdminClick}
               className="hidden sm:flex items-center"
-              data-testid="button-creator-studio"
+              data-testid="button-admin-portal"
             >
-              <EditIcon className="h-4 w-4 mr-1.5" />
-              Creator Studio
+              {isAdmin ? (
+                <>
+                  <ClipboardListIcon className="h-4 w-4 mr-1.5" />
+                  {showingAdminPortal ? "Back to Home" : "Admin Portal"}
+                </>
+              ) : (
+                <>
+                  <EditIcon className="h-4 w-4 mr-1.5" />
+                  {showingAdminPortal ? "Back to Home" : "Creator Studio"}
+                </>
+              )}
             </Button>
           )}
           <div className="text-right hidden sm:block">

@@ -432,6 +432,7 @@ function App() {
             user={currentUser} 
             onLogout={handleLogout}
             onAdminClick={() => setShowCreatorDashboard(!showCreatorDashboard)}
+            showingAdminPortal={showCreatorDashboard}
           />
 
           <main className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8 py-8">
@@ -448,6 +449,7 @@ function App() {
                 users={users}
                 groups={groups}
                 categories={categories}
+                currentUser={currentUser}
                 onAddTopic={handleAddTopic}
                 onUpdateTopic={handleUpdateTopic}
                 onDeleteTopic={handleDeleteTopic}

@@ -18,6 +18,7 @@ interface CreatorDashboardProps {
   users: User[];
   groups: Group[];
   categories: string[];
+  currentUser?: User;
   onAddTopic: (topic: Topic) => void;
   onUpdateTopic: (topic: Topic) => void;
   onDeleteTopic: (id: string) => void;
@@ -33,13 +34,18 @@ interface CreatorDashboardProps {
 type Tab = 'courses' | 'users' | 'settings';
 
 export default function CreatorDashboard({
-  topics, users, groups, categories,
+  topics, users, groups, categories, currentUser,
   onAddTopic, onUpdateTopic, onDeleteTopic,
   onAddUser, onUpdateUser, onDeleteUser,
   onAddGroup, onDeleteGroup,
   onAddCategory, onDeleteCategory
 }: CreatorDashboardProps) {
   const [activeTab, setActiveTab] = useState<Tab>('courses');
+  const isAdmin = currentUser?.role === UserRole.Admin;
+  const portalTitle = isAdmin ? 'Admin Portal' : 'Creator Studio';
+  const portalDescription = isAdmin 
+    ? 'Manage all courses, users, groups, and settings' 
+    : 'Create and manage your courses and content';
 
   const [isEditingTopic, setIsEditingTopic] = useState(false);
   const [editTopicId, setEditTopicId] = useState<string | null>(null);
@@ -289,13 +295,19 @@ export default function CreatorDashboard({
   };
 
   return (
-    <Card className="min-h-[80vh]" data-testid="card-creator-dashboard">
-      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as Tab)}>
-        <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="courses" data-testid="tab-courses">Courses & Content</TabsTrigger>
-          <TabsTrigger value="users" data-testid="tab-users">Users & Access</TabsTrigger>
-          <TabsTrigger value="settings" data-testid="tab-settings">Settings & Config</TabsTrigger>
-        </TabsList>
+    <div data-testid="card-creator-dashboard">
+      <div className="mb-6">
+        <h1 className="text-2xl font-bold text-foreground" data-testid="text-portal-title">{portalTitle}</h1>
+        <p className="text-muted-foreground">{portalDescription}</p>
+      </div>
+
+      <Card className="min-h-[80vh]">
+        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as Tab)}>
+          <TabsList className="grid w-full grid-cols-3">
+            <TabsTrigger value="courses" data-testid="tab-courses">Courses & Content</TabsTrigger>
+            <TabsTrigger value="users" data-testid="tab-users">Users & Access</TabsTrigger>
+            <TabsTrigger value="settings" data-testid="tab-settings">Settings & Config</TabsTrigger>
+          </TabsList>
 
         <div className="p-6">
           <TabsContent value="courses" className="mt-0">
@@ -689,7 +701,8 @@ export default function CreatorDashboard({
             </div>
           </TabsContent>
         </div>
-      </Tabs>
+        </Tabs>
+      </Card>
 
       <Dialog open={showAiModal} onOpenChange={setShowAiModal}>
         <DialogContent className="max-w-lg">
@@ -764,6 +777,6 @@ export default function CreatorDashboard({
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </Card>
+    </div>
   );
 }
