@@ -88,7 +88,16 @@ export default function CreatorDashboard({
     setTopicImage(topic.imageUrl);
     setIsSop(topic.isSop || false);
     setContentBlocks([...topic.content]);
-    setUploadModeMap({});
+    
+    // Set upload mode for blocks that have base64 data (uploaded files)
+    const uploadModes: Record<number, boolean> = {};
+    topic.content.forEach((block, index) => {
+      if ((block.type === ContentType.Image || block.type === ContentType.Document) && 
+          block.content?.startsWith('data:')) {
+        uploadModes[index] = true;
+      }
+    });
+    setUploadModeMap(uploadModes);
 
     if (topic.sharedWith.includes('group-3') && groups.find(g => g.id === 'group-3')?.name === 'All Employees') {
       setShareMode('all');
@@ -492,10 +501,10 @@ export default function CreatorDashboard({
                                   Processing file...
                                 </div>
                               )}
-                              {block.content && !uploadingBlocks[index] && (
+                              {block.content && block.content.startsWith('data:') && !uploadingBlocks[index] && (
                                 <div className="flex items-center gap-2 text-sm text-green-600">
                                   <CheckIcon className="h-4 w-4" />
-                                  File loaded successfully
+                                  {editTopicId ? 'File already saved (re-upload to replace)' : 'File loaded successfully'}
                                 </div>
                               )}
                             </div>
