@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { Topic, TopicStatus, Group, LeaderboardEntry, User, ContentType } from '../types';
 import TopicCard from './TopicCard';
 import ProgressChart from './ProgressChart';
@@ -39,6 +39,10 @@ export default function Dashboard({
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
   const [selectedStatus, setSelectedStatus] = useState<string>('All');
   const [viewMode, setViewMode] = useState<ViewMode>(initialMode);
+
+  useEffect(() => {
+    setViewMode(initialMode);
+  }, [initialMode]);
 
   const { pendingTopics, completedTopics, filteredTotal } = useMemo(() => {
     const filtered = topics.filter(topic => {
