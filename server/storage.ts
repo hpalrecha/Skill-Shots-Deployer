@@ -37,6 +37,8 @@ export interface IStorage {
   getGroup(id: string): Promise<Group | undefined>;
   getAllGroups(): Promise<Group[]>;
   createGroup(group: InsertGroup): Promise<Group>;
+  deleteGroup(id: string): Promise<boolean>;
+  deleteUser(id: string): Promise<boolean>;
   
   getTopic(id: string): Promise<Topic | undefined>;
   getTopicsByAuthor(authorId: string): Promise<Topic[]>;
@@ -55,6 +57,7 @@ export interface IStorage {
   
   getCategories(): Promise<Category[]>;
   createCategory(category: InsertCategory): Promise<Category>;
+  deleteCategory(name: string): Promise<boolean>;
   
   getUserStats(userId: string): Promise<UserStats | undefined>;
   updateUserStats(userId: string, data: Partial<InsertUserStats>): Promise<UserStats>;
@@ -108,6 +111,16 @@ export class DatabaseStorage implements IStorage {
   async createGroup(group: InsertGroup): Promise<Group> {
     const result = await db.insert(groups).values(group).returning();
     return result[0];
+  }
+
+  async deleteGroup(id: string): Promise<boolean> {
+    const result = await db.delete(groups).where(eq(groups.id, id)).returning();
+    return result.length > 0;
+  }
+
+  async deleteUser(id: string): Promise<boolean> {
+    const result = await db.delete(users).where(eq(users.id, id)).returning();
+    return result.length > 0;
   }
 
   async getTopic(id: string): Promise<Topic | undefined> {
@@ -202,6 +215,11 @@ export class DatabaseStorage implements IStorage {
   async createCategory(category: InsertCategory): Promise<Category> {
     const result = await db.insert(categories).values(category).returning();
     return result[0];
+  }
+
+  async deleteCategory(name: string): Promise<boolean> {
+    const result = await db.delete(categories).where(eq(categories.name, name)).returning();
+    return result.length > 0;
   }
 
   async getUserStats(userId: string): Promise<UserStats | undefined> {

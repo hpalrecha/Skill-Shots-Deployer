@@ -252,7 +252,19 @@ function App() {
 
   const handleDeleteUser = async (id: string) => {
     if (!window.confirm('Are you sure you want to delete this user?')) return;
-    setUsers(prev => prev.filter(u => u.id !== id));
+    
+    try {
+      const response = await fetch(`/api/users/${id}`, {
+        method: 'DELETE',
+        credentials: 'include',
+      });
+      
+      if (response.ok) {
+        setUsers(prev => prev.filter(u => u.id !== id));
+      }
+    } catch (err) {
+      console.error('Error deleting user:', err);
+    }
   };
 
   const handleAddGroup = async (group: Group) => {
@@ -273,8 +285,19 @@ function App() {
     }
   };
 
-  const handleDeleteGroup = (id: string) => {
-    setGroups(prev => prev.filter(g => g.id !== id));
+  const handleDeleteGroup = async (id: string) => {
+    try {
+      const response = await fetch(`/api/groups/${id}`, {
+        method: 'DELETE',
+        credentials: 'include',
+      });
+      
+      if (response.ok) {
+        setGroups(prev => prev.filter(g => g.id !== id));
+      }
+    } catch (err) {
+      console.error('Error deleting group:', err);
+    }
   };
 
   const handleAddCategory = async (cat: string) => {
@@ -296,8 +319,19 @@ function App() {
     }
   };
 
-  const handleDeleteCategory = (cat: string) => {
-    setCategories(prev => prev.filter(c => c !== cat));
+  const handleDeleteCategory = async (cat: string) => {
+    try {
+      const response = await fetch(`/api/categories/${encodeURIComponent(cat)}`, {
+        method: 'DELETE',
+        credentials: 'include',
+      });
+      
+      if (response.ok) {
+        setCategories(prev => prev.filter(c => c !== cat));
+      }
+    } catch (err) {
+      console.error('Error deleting category:', err);
+    }
   };
 
   const getAccessibleTopics = (): Topic[] => {

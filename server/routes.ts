@@ -431,6 +431,45 @@ Requirements:
     }
   });
 
+  app.delete("/api/groups/:id", async (req, res) => {
+    try {
+      const deleted = await storage.deleteGroup(req.params.id);
+      if (!deleted) {
+        return res.status(404).json({ error: "Group not found" });
+      }
+      res.json({ message: "Group deleted" });
+    } catch (error: any) {
+      console.error("Delete group error:", error);
+      res.status(500).json({ error: error.message || "Failed to delete group" });
+    }
+  });
+
+  app.delete("/api/users/:id", async (req, res) => {
+    try {
+      const deleted = await storage.deleteUser(req.params.id);
+      if (!deleted) {
+        return res.status(404).json({ error: "User not found" });
+      }
+      res.json({ message: "User deleted" });
+    } catch (error: any) {
+      console.error("Delete user error:", error);
+      res.status(500).json({ error: error.message || "Failed to delete user" });
+    }
+  });
+
+  app.delete("/api/categories/:name", async (req, res) => {
+    try {
+      const deleted = await storage.deleteCategory(req.params.name);
+      if (!deleted) {
+        return res.status(404).json({ error: "Category not found" });
+      }
+      res.json({ message: "Category deleted" });
+    } catch (error: any) {
+      console.error("Delete category error:", error);
+      res.status(500).json({ error: error.message || "Failed to delete category" });
+    }
+  });
+
   app.get("/api/topics", async (req, res) => {
     try {
       const topics = await storage.getAllTopics();
