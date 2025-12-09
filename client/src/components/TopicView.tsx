@@ -88,7 +88,8 @@ export default function TopicView({ topic, onMarkComplete, groups }: TopicViewPr
       const answer = await askQuestionAboutTopic(topic.content, askQuestion);
       setAskAnswer(answer);
     } catch (err) {
-      setAskAnswer("I'm having trouble connecting right now. Please try again.");
+      const errorMessage = err instanceof Error ? err.message : "I'm having trouble connecting right now. Please try again.";
+      setAskAnswer(errorMessage);
     } finally {
       setIsAsking(false);
     }

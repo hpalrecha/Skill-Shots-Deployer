@@ -6,37 +6,19 @@ export interface CourseResource {
 }
 
 export const generateQuiz = async (contentBlocks: ContentBlock[]): Promise<QuizData> => {
-  try {
-    const response = await fetch('/api/gemini/generate-quiz', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ content: contentBlocks })
-    });
+  const response = await fetch('/api/gemini/generate-quiz', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ content: contentBlocks })
+  });
 
-    if (!response.ok) throw new Error('Failed to generate quiz');
-    
-    const data = await response.json();
-    return data as QuizData;
-  } catch (error) {
-    console.error("Error generating quiz via Gemini API:", error);
-    return [
-      {
-        question: "What is the main purpose of this training material?",
-        options: ["To inform and educate", "To entertain", "To confuse", "To delay"],
-        correctAnswerIndex: 0
-      },
-      {
-        question: "According to the content, what should be prioritized?",
-        options: ["Speed", "Quality and safety", "Cost reduction", "All of the above"],
-        correctAnswerIndex: 1
-      },
-      {
-        question: "What best describes the key takeaway?",
-        options: ["Continuous improvement", "Maintaining status quo", "Reducing effort", "Ignoring feedback"],
-        correctAnswerIndex: 0
-      }
-    ];
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.error || 'Failed to generate quiz. Please ensure the topic has valid content.');
   }
+  
+  const data = await response.json();
+  return data as QuizData;
 };
 
 export const getChatbotResponse = async (prompt: string, useThinkingMode: boolean, systemInstruction?: string): Promise<string> => {
@@ -80,24 +62,22 @@ export const analyzeVideoContent = async (videoTitle: string): Promise<string> =
 };
 
 export const askQuestionAboutTopic = async (contentBlocks: ContentBlock[], question: string): Promise<string> => {
-  try {
-    const response = await fetch('/api/gemini/ask-question', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        content: contentBlocks,
-        question
-      })
-    });
+  const response = await fetch('/api/gemini/ask-question', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      content: contentBlocks,
+      question
+    })
+  });
 
-    if (!response.ok) throw new Error('Failed to get answer');
-    
-    const data = await response.json();
-    return data.answer || "I could not generate an answer.";
-  } catch (error) {
-    console.error("Error asking question about topic:", error);
-    return "Sorry, I encountered an error while processing your question. Please try again.";
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.error || 'Failed to get answer. Please ensure the topic has valid content.');
   }
+  
+  const data = await response.json();
+  return data.answer || "I could not generate an answer.";
 };
 
 export const generateCourseFromPrompt = async (prompt: string, resources: CourseResource[] = []): Promise<{

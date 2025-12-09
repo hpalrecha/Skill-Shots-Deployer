@@ -29,11 +29,11 @@ function buildMultimodalParts(blocks: ContentBlock[]): Array<{ text: string } | 
   const parts: Array<{ text: string } | { inlineData: { mimeType: string; data: string } }> = [];
   
   blocks.forEach(block => {
-    if (!block.content) return;
-    
     if (block.type === 'paragraph') {
-      parts.push({ text: block.content });
-    } else if ((block.type === 'image' || block.type === 'document') && block.content.startsWith('data:')) {
+      if (block.content) {
+        parts.push({ text: block.content });
+      }
+    } else if ((block.type === 'image' || block.type === 'document') && block.content?.startsWith('data:')) {
       try {
         const [header, base64Data] = block.content.split(',');
         const mimeType = header.split(':')[1].split(';')[0];
@@ -50,11 +50,16 @@ function buildMultimodalParts(blocks: ContentBlock[]): Array<{ text: string } | 
         }
       } catch (e) {
         console.warn("Failed to parse data URL for AI context", e);
+        if (block.title) {
+          parts.push({ text: `[${block.type === 'image' ? 'Image' : 'Document'} reference: ${block.title}]` });
+        }
       }
+    } else if (block.type === 'document' && block.title) {
+      parts.push({ text: `[Document reference: ${block.title}]` });
     } else if (block.type === 'video') {
-      parts.push({ text: `[Video: ${block.title || 'Untitled'} - URL: ${block.content}]` });
-    } else {
-      parts.push({ text: `[Resource: ${block.title || block.content}]` });
+      parts.push({ text: `[Video: ${block.title || 'Untitled'} - URL: ${block.content || 'No URL'}]` });
+    } else if (block.title) {
+      parts.push({ text: `[Resource: ${block.title}]` });
     }
   });
   
