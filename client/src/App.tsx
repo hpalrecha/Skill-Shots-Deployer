@@ -545,6 +545,56 @@ function App() {
               )}
             </Route>
 
+            {/* Courses - Only courses (non-SOPs) */}
+            <Route path="/courses">
+              <main className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8 py-8">
+                {isLoadingData ? (
+                  <div className="flex items-center justify-center py-20">
+                    <div className="text-center">
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+                      <p className="text-muted-foreground">Loading content...</p>
+                    </div>
+                  </div>
+                ) : (
+                  <Dashboard
+                    topics={accessibleTopics}
+                    categories={categories}
+                    onSelectTopic={handleSelectTopic}
+                    groups={groups}
+                    leaderboard={leaderboard}
+                    currentUser={currentUser}
+                    initialMode="learning"
+                    lockMode={true}
+                  />
+                )}
+              </main>
+            </Route>
+
+            {/* SOPs - Only SOPs */}
+            <Route path="/sops">
+              <main className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8 py-8">
+                {isLoadingData ? (
+                  <div className="flex items-center justify-center py-20">
+                    <div className="text-center">
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+                      <p className="text-muted-foreground">Loading content...</p>
+                    </div>
+                  </div>
+                ) : (
+                  <Dashboard
+                    topics={accessibleTopics}
+                    categories={categories}
+                    onSelectTopic={handleSelectTopic}
+                    groups={groups}
+                    leaderboard={leaderboard}
+                    currentUser={currentUser}
+                    initialMode="sop"
+                    lockMode={true}
+                  />
+                )}
+              </main>
+            </Route>
+
             {/* Learning Dashboard - Default route for all users */}
             <Route path="/">
               <main className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8 py-8">

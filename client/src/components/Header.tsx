@@ -1,7 +1,8 @@
-import { Link, useLocation } from 'wouter';
+import { useLocation } from 'wouter';
 import { User, UserRole } from '../types';
-import { SkillShotsLogo, UserCircleIcon, LogOutIcon, EditIcon, ClipboardListIcon } from './icons';
+import { SkillShotsLogo, UserCircleIcon, LogOutIcon, EditIcon, ClipboardListIcon, BrainIcon } from './icons';
 import { Button } from '@/components/ui/button';
+import { BookOpen } from 'lucide-react';
 
 interface HeaderProps {
   user: User;
@@ -17,6 +18,8 @@ export default function Header({ user, onLogout, currentRoute }: HeaderProps) {
 
   const isOnAdminRoute = currentRoute === '/admin';
   const isOnCreatorRoute = currentRoute === '/creatorstudio';
+  const isOnCoursesRoute = currentRoute === '/courses';
+  const isOnSopsRoute = currentRoute === '/sops';
   const isOnManagementRoute = isOnAdminRoute || isOnCreatorRoute;
 
   const getAdminButtonLabel = () => {
@@ -41,10 +44,42 @@ export default function Header({ user, onLogout, currentRoute }: HeaderProps) {
   return (
     <header className="bg-card border-b border-border sticky top-0 z-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8 py-3 flex justify-between items-center gap-4 flex-wrap">
-        <div className="flex items-center space-x-2 cursor-pointer" onClick={handleLogoClick} data-testid="link-home">
-          <SkillShotsLogo className="h-9 w-9 text-primary" />
-          <h1 className="text-2xl font-bold text-foreground tracking-tight">SkillShots</h1>
+        <div className="flex items-center gap-6">
+          <div className="flex items-center space-x-2 cursor-pointer" onClick={handleLogoClick} data-testid="link-home">
+            <SkillShotsLogo className="h-9 w-9 text-primary" />
+            <h1 className="text-2xl font-bold text-foreground tracking-tight hidden sm:block">SkillShots</h1>
+          </div>
+          
+          <nav className="flex items-center gap-1">
+            <Button
+              variant={currentRoute === '/' ? "default" : "ghost"}
+              size="sm"
+              onClick={() => setLocation('/')}
+              data-testid="nav-home"
+            >
+              Home
+            </Button>
+            <Button
+              variant={isOnCoursesRoute ? "default" : "ghost"}
+              size="sm"
+              onClick={() => setLocation('/courses')}
+              data-testid="nav-courses"
+            >
+              <BookOpen className="h-4 w-4 mr-1.5 hidden sm:block" />
+              Courses
+            </Button>
+            <Button
+              variant={isOnSopsRoute ? "default" : "ghost"}
+              size="sm"
+              onClick={() => setLocation('/sops')}
+              data-testid="nav-sops"
+            >
+              <ClipboardListIcon className="h-4 w-4 mr-1.5 hidden sm:block" />
+              SOPs
+            </Button>
+          </nav>
         </div>
+
         <div className="flex items-center gap-4 flex-wrap">
           {canAccessAdmin && (
             <Button

@@ -12,6 +12,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
+type ViewMode = 'learning' | 'sop' | 'analytics';
+
 interface DashboardProps {
   topics: Topic[];
   categories: string[];
@@ -19,17 +21,29 @@ interface DashboardProps {
   groups: Group[];
   leaderboard: LeaderboardEntry[];
   currentUser: User;
+  initialMode?: ViewMode;
+  lockMode?: boolean;
 }
 
-export default function Dashboard({ topics, categories, onSelectTopic, groups, leaderboard, currentUser }: DashboardProps) {
+export default function Dashboard({ 
+  topics, 
+  categories, 
+  onSelectTopic, 
+  groups, 
+  leaderboard, 
+  currentUser,
+  initialMode = 'learning',
+  lockMode = false
+}: DashboardProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
   const [selectedStatus, setSelectedStatus] = useState<string>('All');
-  const [viewMode, setViewMode] = useState<'learning' | 'sop' | 'analytics'>('learning');
+  const [viewMode, setViewMode] = useState<ViewMode>(initialMode);
 
   const { pendingTopics, completedTopics, filteredTotal } = useMemo(() => {
     const filtered = topics.filter(topic => {
       if (viewMode === 'sop' && !topic.isSop) return false;
+      if (viewMode === 'learning' && topic.isSop) return false;
 
       const lowerSearch = searchTerm.toLowerCase();
       const titleMatch = topic.title.toLowerCase().includes(lowerSearch);
@@ -69,52 +83,54 @@ export default function Dashboard({ topics, categories, onSelectTopic, groups, l
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
           <div className="min-w-0 flex-1">
             <h2 className="text-2xl md:text-3xl font-bold text-foreground" data-testid="text-dashboard-title">
-              {viewMode === 'learning' ? 'Your Learning Dashboard' : viewMode === 'sop' ? 'SOP Library' : 'Learning Analytics'}
+              {viewMode === 'learning' ? 'Courses' : viewMode === 'sop' ? 'SOP Library' : 'Learning Analytics'}
             </h2>
             <p className="text-muted-foreground mt-1 text-sm md:text-base">
               {viewMode === 'learning'
-                ? 'Track your progress and climb the leaderboard!'
+                ? 'Browse and complete your assigned training courses.'
                 : viewMode === 'sop' 
                   ? 'Access Standard Operating Procedures and Reference Guides.'
                   : 'View your learning streaks, progress charts, and achievements.'}
             </p>
           </div>
 
-          <div className="flex p-1 bg-muted rounded-lg self-start lg:self-auto flex-shrink-0 gap-1">
-            <Button
-              variant={viewMode === 'learning' ? 'default' : 'ghost'}
-              size="sm"
-              onClick={() => setViewMode('learning')}
-              className="flex items-center whitespace-nowrap"
-              data-testid="button-my-learning"
-            >
-              <BrainIcon className="h-4 w-4 mr-1.5" />
-              <span className="hidden sm:inline">My Learning</span>
-              <span className="sm:hidden">Learn</span>
-            </Button>
-            <Button
-              variant={viewMode === 'sop' ? 'default' : 'ghost'}
-              size="sm"
-              onClick={() => setViewMode('sop')}
-              className="flex items-center whitespace-nowrap"
-              data-testid="button-sop-library"
-            >
-              <ClipboardListIcon className="h-4 w-4 mr-1.5" />
-              <span className="hidden sm:inline">SOP Library</span>
-              <span className="sm:hidden">SOPs</span>
-            </Button>
-            <Button
-              variant={viewMode === 'analytics' ? 'default' : 'ghost'}
-              size="sm"
-              onClick={() => setViewMode('analytics')}
-              className="flex items-center whitespace-nowrap"
-              data-testid="button-analytics"
-            >
-              <BarChart2 className="h-4 w-4 mr-1.5" />
-              <span className="hidden sm:inline">Analytics</span>
-              <span className="sm:hidden">Stats</span>
-            </Button>
-          </div>
+          {!lockMode && (
+            <div className="flex p-1 bg-muted rounded-lg self-start lg:self-auto flex-shrink-0 gap-1">
+              <Button
+                variant={viewMode === 'learning' ? 'default' : 'ghost'}
+                size="sm"
+                onClick={() => setViewMode('learning')}
+                className="flex items-center whitespace-nowrap"
+                data-testid="button-my-learning"
+              >
+                <BrainIcon className="h-4 w-4 mr-1.5" />
+                <span className="hidden sm:inline">Courses</span>
+                <span className="sm:hidden">Courses</span>
+              </Button>
+              <Button
+                variant={viewMode === 'sop' ? 'default' : 'ghost'}
+                size="sm"
+                onClick={() => setViewMode('sop')}
+                className="flex items-center whitespace-nowrap"
+                data-testid="button-sop-library"
+              >
+                <ClipboardListIcon className="h-4 w-4 mr-1.5" />
+                <span className="hidden sm:inline">SOP Library</span>
+                <span className="sm:hidden">SOPs</span>
+              </Button>
+              <Button
+                variant={viewMode === 'analytics' ? 'default' : 'ghost'}
+                size="sm"
+                onClick={() => setViewMode('analytics')}
+                className="flex items-center whitespace-nowrap"
+                data-testid="button-analytics"
+              >
+                <BarChart2 className="h-4 w-4 mr-1.5" />
+                <span className="hidden sm:inline">Analytics</span>
+                <span className="sm:hidden">Stats</span>
+              </Button>
+            </div>
+          )}
         </div>
 
         {viewMode !== 'analytics' && (
