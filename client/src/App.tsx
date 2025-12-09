@@ -481,22 +481,25 @@ function App() {
             />
           )}
 
-          <Chatbot
-            isOpen={isChatbotOpen}
-            onClose={() => setIsChatbotOpen(false)}
-            topics={accessibleTopics}
-          />
-
-          <Button
-            onClick={() => setIsChatbotOpen(!isChatbotOpen)}
-            className="fixed bottom-6 right-6 rounded-full shadow-lg z-40"
-            size="lg"
-            data-testid="button-chatbot-toggle"
-          >
-            <MessageSquareIcon className="h-6 w-6 mr-2" />
-            AI Assistant
-          </Button>
         </div>
+
+        <Chatbot
+          isOpen={isChatbotOpen}
+          onClose={() => setIsChatbotOpen(false)}
+          topics={accessibleTopics}
+        />
+
+        <Button
+          onClick={() => setIsChatbotOpen(!isChatbotOpen)}
+          style={{ position: 'fixed', bottom: '24px', right: '24px' }}
+          className="rounded-full shadow-lg z-[9999]"
+          size="lg"
+          data-testid="button-chatbot-toggle"
+        >
+          <MessageSquareIcon className="h-6 w-6 mr-2" />
+          AI Assistant
+        </Button>
+
         <Toaster />
       </TooltipProvider>
     </QueryClientProvider>
