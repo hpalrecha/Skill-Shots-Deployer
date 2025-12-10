@@ -4,7 +4,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
 import { SendIcon, SparklesIcon, LoaderIcon } from './icons';
-import { Mic, MicOff, User } from 'lucide-react';
+import { Mic, MicOff, User, Phone } from 'lucide-react';
+import VoiceConversation from './VoiceConversation';
 
 interface ChatMessage {
   id: string;
@@ -24,6 +25,7 @@ export default function TopicChat({ topicTitle, contentBlocks }: TopicChatProps)
   const [isLoading, setIsLoading] = useState(false);
   const [isListening, setIsListening] = useState(false);
   const [speechSupported, setSpeechSupported] = useState(false);
+  const [showVoiceMode, setShowVoiceMode] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const recognitionRef = useRef<any>(null);
 
@@ -143,11 +145,36 @@ export default function TopicChat({ topicTitle, contentBlocks }: TopicChatProps)
     }
   };
 
+  // Voice mode overlay
+  if (showVoiceMode) {
+    return (
+      <VoiceConversation
+        topicTitle={topicTitle}
+        contentBlocks={contentBlocks}
+        onClose={() => setShowVoiceMode(false)}
+      />
+    );
+  }
+
   return (
     <Card className="p-4" data-testid="topic-chat">
-      <div className="flex items-center gap-2 mb-3">
-        <SparklesIcon className="h-5 w-5 text-primary" />
-        <h4 className="font-semibold text-foreground">Ask about this topic</h4>
+      <div className="flex items-center justify-between gap-2 mb-3">
+        <div className="flex items-center gap-2">
+          <SparklesIcon className="h-5 w-5 text-primary" />
+          <h4 className="font-semibold text-foreground">Ask about this topic</h4>
+        </div>
+        {speechSupported && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setShowVoiceMode(true)}
+            className="gap-2"
+            data-testid="button-voice-mode"
+          >
+            <Phone className="h-4 w-4" />
+            Voice Mode
+          </Button>
+        )}
       </div>
       <p className="text-sm text-muted-foreground mb-4">
         I can answer questions about this course content. Ask me anything!
