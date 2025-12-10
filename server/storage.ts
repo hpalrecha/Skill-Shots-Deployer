@@ -9,6 +9,7 @@ import {
   leaderboard,
   categories,
   moduleProgress,
+  courseCompletions,
   type User,
   type InsertUser,
   type Group,
@@ -25,6 +26,8 @@ import {
   type InsertCategory,
   type ModuleProgress,
   type InsertModuleProgress,
+  type CourseCompletion,
+  type InsertCourseCompletion,
 } from "@shared/schema";
 import bcrypt from "bcrypt";
 
@@ -76,6 +79,12 @@ export interface IStorage {
   getCourseUserProgress(topicId: string): Promise<CourseUserProgress[]>;
   getUserCourseProgress(userId: string): Promise<UserCourseProgress[]>;
   getAllModuleProgress(): Promise<ModuleProgress[]>;
+  
+  getCourseCompletion(userId: string, topicId: string): Promise<CourseCompletion | undefined>;
+  getUserCourseCompletions(userId: string): Promise<CourseCompletion[]>;
+  getAllCourseCompletions(): Promise<CourseCompletion[]>;
+  createCourseCompletion(completion: InsertCourseCompletion): Promise<CourseCompletion>;
+  checkAndRecordCourseCompletion(userId: string, topicId: string): Promise<{ completed: boolean; completion?: CourseCompletion; isNew?: boolean }>;
   
   hashPassword(password: string): Promise<string>;
   comparePassword(password: string, hash: string): Promise<boolean>;
@@ -608,6 +617,78 @@ export class DatabaseStorage implements IStorage {
         lastActivityDate: latestProgress?.updatedAt || null,
       };
     });
+  }
+
+  async getCourseCompletion(userId: string, topicId: string): Promise<CourseCompletion | undefined> {
+    const result = await db.select().from(courseCompletions)
+      .where(and(
+        eq(courseCompletions.userId, userId),
+        eq(courseCompletions.topicId, topicId)
+      ))
+      .limit(1);
+    return result[0];
+  }
+
+  async getUserCourseCompletions(userId: string): Promise<CourseCompletion[]> {
+    return db.select().from(courseCompletions)
+      .where(eq(courseCompletions.userId, userId))
+      .orderBy(desc(courseCompletions.completedAt));
+  }
+
+  async getAllCourseCompletions(): Promise<CourseCompletion[]> {
+    return db.select().from(courseCompletions)
+      .orderBy(desc(courseCompletions.completedAt));
+  }
+
+  async createCourseCompletion(completion: InsertCourseCompletion): Promise<CourseCompletion> {
+    const result = await db.insert(courseCompletions).values(completion).returning();
+    return result[0];
+  }
+
+  async checkAndRecordCourseCompletion(userId: string, topicId: string): Promise<{ completed: boolean; completion?: CourseCompletion; isNew?: boolean }> {
+    const existing = await this.getCourseCompletion(userId, topicId);
+    if (existing) {
+      return { completed: true, completion: existing, isNew: false };
+    }
+
+    const topic = await this.getTopic(topicId);
+    if (!topic) {
+      return { completed: false };
+    }
+
+    const modules = (topic.modules as any[]) || [];
+    const totalModules = modules.length;
+    
+    if (totalModules === 0) {
+      return { completed: false };
+    }
+
+    const moduleProgressList = await this.getModuleProgressForTopic(userId, topicId);
+    const completedModules = moduleProgressList.filter(mp => {
+      if (mp.status !== 'completed') return false;
+      if (mp.quizScore === null || mp.quizTotal === null) return false;
+      const percentage = (mp.quizScore / mp.quizTotal) * 100;
+      return percentage >= 90;
+    });
+
+    if (completedModules.length >= totalModules) {
+      const avgScore = completedModules.length > 0
+        ? Math.round(completedModules.reduce((sum, mp) => sum + ((mp.quizScore! / mp.quizTotal!) * 100), 0) / completedModules.length)
+        : 0;
+
+      const completion = await this.createCourseCompletion({
+        userId,
+        topicId,
+        averageScore: avgScore,
+        totalModules,
+      });
+
+      await this.updateLeaderboardPoints(userId, 100);
+
+      return { completed: true, completion, isNew: true };
+    }
+
+    return { completed: false };
   }
 
   async hashPassword(password: string): Promise<string> {

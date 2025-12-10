@@ -87,6 +87,15 @@ export const categories = pgTable("categories", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+export const courseCompletions = pgTable("course_completions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull(),
+  topicId: varchar("topic_id").notNull(),
+  completedAt: timestamp("completed_at").defaultNow(),
+  averageScore: integer("average_score"),
+  totalModules: integer("total_modules"),
+});
+
 export const insertUserSchema = createInsertSchema(users).omit({
   id: true,
   createdAt: true,
@@ -129,6 +138,11 @@ export const insertCategorySchema = createInsertSchema(categories).omit({
   createdAt: true,
 });
 
+export const insertCourseCompletionSchema = createInsertSchema(courseCompletions).omit({
+  id: true,
+  completedAt: true,
+});
+
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
 
@@ -152,6 +166,9 @@ export type UserStats = typeof userStats.$inferSelect;
 
 export type InsertCategory = z.infer<typeof insertCategorySchema>;
 export type Category = typeof categories.$inferSelect;
+
+export type InsertCourseCompletion = z.infer<typeof insertCourseCompletionSchema>;
+export type CourseCompletion = typeof courseCompletions.$inferSelect;
 
 export const loginSchema = z.object({
   email: z.string().email(),

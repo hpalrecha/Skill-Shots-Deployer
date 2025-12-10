@@ -524,6 +524,90 @@ Requirements:
     }
   });
 
+  // Course completion endpoints
+  app.get("/api/course-completions/user", async (req, res) => {
+    try {
+      const userId = req.session.userId;
+      
+      if (!userId) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+      
+      const completions = await storage.getUserCourseCompletions(userId);
+      const allTopics = await storage.getAllTopics();
+      
+      const completionsWithDetails = completions.map(c => {
+        const topic = allTopics.find(t => t.id === c.topicId);
+        return {
+          ...c,
+          topicTitle: topic?.title || 'Unknown Course',
+          topicCategory: topic?.category || '',
+          topicImageUrl: topic?.imageUrl || null,
+        };
+      });
+      
+      res.json(completionsWithDetails);
+    } catch (error: any) {
+      console.error("Get user course completions error:", error);
+      res.status(500).json({ error: error.message || "Failed to get course completions" });
+    }
+  });
+
+  app.get("/api/course-completions/all", async (req, res) => {
+    try {
+      const completions = await storage.getAllCourseCompletions();
+      const allTopics = await storage.getAllTopics();
+      const allUsers = await storage.getAllUsers();
+      
+      const completionsWithDetails = completions.map(c => {
+        const topic = allTopics.find(t => t.id === c.topicId);
+        const user = allUsers.find(u => u.id === c.userId);
+        return {
+          ...c,
+          topicTitle: topic?.title || 'Unknown Course',
+          userName: user?.name || 'Unknown User',
+          userEmail: user?.email || '',
+        };
+      });
+      
+      res.json(completionsWithDetails);
+    } catch (error: any) {
+      console.error("Get all course completions error:", error);
+      res.status(500).json({ error: error.message || "Failed to get course completions" });
+    }
+  });
+
+  app.post("/api/course-completions/check", async (req, res) => {
+    try {
+      const { topicId } = req.body;
+      const userId = req.session.userId;
+      
+      if (!userId) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+      
+      if (!topicId) {
+        return res.status(400).json({ error: "topicId is required" });
+      }
+      
+      const result = await storage.checkAndRecordCourseCompletion(userId, topicId);
+      
+      if (result.isNew && result.completion) {
+        const topic = await storage.getTopic(topicId);
+        return res.json({
+          ...result,
+          topicTitle: topic?.title || 'Unknown Course',
+          message: 'Congratulations! You have completed this course!',
+        });
+      }
+      
+      res.json(result);
+    } catch (error: any) {
+      console.error("Check course completion error:", error);
+      res.status(500).json({ error: error.message || "Failed to check course completion" });
+    }
+  });
+
   app.post("/api/auth/register", async (req, res) => {
     try {
       const parseResult = registerSchema.safeParse(req.body);
