@@ -718,6 +718,59 @@ Requirements:
     }
   });
 
+  // Admin Analytics Endpoints
+  app.get("/api/admin/analytics/overview", async (req, res) => {
+    try {
+      const overview = await storage.getAnalyticsOverview();
+      res.json(overview);
+    } catch (error: any) {
+      console.error("Get analytics overview error:", error);
+      res.status(500).json({ error: error.message || "Failed to get analytics overview" });
+    }
+  });
+
+  app.get("/api/admin/analytics/courses", async (req, res) => {
+    try {
+      const courses = await storage.getCourseAnalytics();
+      res.json(courses);
+    } catch (error: any) {
+      console.error("Get course analytics error:", error);
+      res.status(500).json({ error: error.message || "Failed to get course analytics" });
+    }
+  });
+
+  app.get("/api/admin/analytics/users", async (req, res) => {
+    try {
+      const users = await storage.getUserAnalytics();
+      res.json(users);
+    } catch (error: any) {
+      console.error("Get user analytics error:", error);
+      res.status(500).json({ error: error.message || "Failed to get user analytics" });
+    }
+  });
+
+  app.get("/api/admin/analytics/courses/:topicId/users", async (req, res) => {
+    try {
+      const { topicId } = req.params;
+      const userProgress = await storage.getCourseUserProgress(topicId);
+      res.json(userProgress);
+    } catch (error: any) {
+      console.error("Get course user progress error:", error);
+      res.status(500).json({ error: error.message || "Failed to get course user progress" });
+    }
+  });
+
+  app.get("/api/admin/analytics/users/:userId/courses", async (req, res) => {
+    try {
+      const { userId } = req.params;
+      const courseProgress = await storage.getUserCourseProgress(userId);
+      res.json(courseProgress);
+    } catch (error: any) {
+      console.error("Get user course progress error:", error);
+      res.status(500).json({ error: error.message || "Failed to get user course progress" });
+    }
+  });
+
   app.get("/api/topics", async (req, res) => {
     try {
       const topics = await storage.getAllTopics();

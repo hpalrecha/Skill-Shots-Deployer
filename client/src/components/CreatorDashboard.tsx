@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Topic, TopicStatus, ContentType, User, Group, UserRole, ContentBlock, CourseModule } from '../types';
 import { FileTextIcon, VideoIcon, PlusIcon, TrashIcon, EditIcon, CheckIcon, XIcon, UserCircleIcon, UsersIcon, SparklesIcon, LoaderIcon, UploadIcon, LinkIcon, ClipboardListIcon, ImageIcon } from './icons';
 import ModuleEditor from './ModuleEditor';
+import AnalyticsDashboard from './AnalyticsDashboard';
 import { generateCourseFromPrompt, CourseResource } from '../services/geminiService';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -32,7 +33,7 @@ interface CreatorDashboardProps {
   onDeleteCategory: (cat: string) => void;
 }
 
-type Tab = 'courses' | 'users' | 'settings';
+type Tab = 'courses' | 'users' | 'settings' | 'analytics';
 
 export default function CreatorDashboard({
   topics, users, groups, categories, currentUser,
@@ -327,10 +328,11 @@ export default function CreatorDashboard({
 
       <Card className="min-h-[80vh]">
         <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as Tab)}>
-          <TabsList className="grid w-full grid-cols-3">
+          <TabsList className={`grid w-full ${isAdmin ? 'grid-cols-4' : 'grid-cols-3'}`}>
             <TabsTrigger value="courses" data-testid="tab-courses">Courses & Content</TabsTrigger>
             <TabsTrigger value="users" data-testid="tab-users">Users & Access</TabsTrigger>
             <TabsTrigger value="settings" data-testid="tab-settings">Settings & Config</TabsTrigger>
+            {isAdmin && <TabsTrigger value="analytics" data-testid="tab-analytics">Analytics</TabsTrigger>}
           </TabsList>
 
         <div className="p-6">
@@ -756,6 +758,13 @@ export default function CreatorDashboard({
               </Card>
             </div>
           </TabsContent>
+
+          {isAdmin && (
+            <TabsContent value="analytics" className="mt-0">
+              <h2 className="text-2xl font-bold text-foreground mb-6">Platform Analytics</h2>
+              <AnalyticsDashboard />
+            </TabsContent>
+          )}
         </div>
         </Tabs>
       </Card>

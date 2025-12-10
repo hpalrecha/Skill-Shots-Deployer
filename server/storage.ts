@@ -70,8 +70,66 @@ export interface IStorage {
   getModuleProgressForTopic(userId: string, topicId: string): Promise<ModuleProgress[]>;
   createOrUpdateModuleProgress(progress: InsertModuleProgress): Promise<ModuleProgress>;
   
+  getAnalyticsOverview(): Promise<AnalyticsOverview>;
+  getCourseAnalytics(): Promise<CourseAnalytics[]>;
+  getUserAnalytics(): Promise<UserAnalytics[]>;
+  getCourseUserProgress(topicId: string): Promise<CourseUserProgress[]>;
+  getUserCourseProgress(userId: string): Promise<UserCourseProgress[]>;
+  getAllModuleProgress(): Promise<ModuleProgress[]>;
+  
   hashPassword(password: string): Promise<string>;
   comparePassword(password: string, hash: string): Promise<boolean>;
+}
+
+export interface AnalyticsOverview {
+  totalUsers: number;
+  totalCourses: number;
+  totalEnrollments: number;
+  averageCompletionRate: number;
+  averageQuizScore: number;
+  activeUsersLast7Days: number;
+}
+
+export interface CourseAnalytics {
+  topicId: string;
+  topicTitle: string;
+  enrolledUsers: number;
+  completedUsers: number;
+  inProgressUsers: number;
+  completionRate: number;
+  averageQuizScore: number;
+  moduleCount: number;
+}
+
+export interface UserAnalytics {
+  userId: string;
+  userName: string;
+  userEmail: string;
+  coursesEnrolled: number;
+  coursesCompleted: number;
+  averageQuizScore: number;
+  lastActiveDate: Date | null;
+}
+
+export interface CourseUserProgress {
+  userId: string;
+  userName: string;
+  userEmail: string;
+  modulesCompleted: number;
+  totalModules: number;
+  lastQuizScore: number | null;
+  status: string;
+  lastActivityDate: Date | null;
+}
+
+export interface UserCourseProgress {
+  topicId: string;
+  topicTitle: string;
+  modulesCompleted: number;
+  totalModules: number;
+  averageQuizScore: number;
+  status: string;
+  lastActivityDate: Date | null;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -322,6 +380,234 @@ export class DatabaseStorage implements IStorage {
     }
     const result = await db.insert(moduleProgress).values(progress).returning();
     return result[0];
+  }
+
+  async getAllModuleProgress(): Promise<ModuleProgress[]> {
+    return db.select().from(moduleProgress);
+  }
+
+  async getAnalyticsOverview(): Promise<AnalyticsOverview> {
+    const allUsers = await db.select().from(users);
+    const allTopics = await db.select().from(topics);
+    const allProgress = await db.select().from(moduleProgress);
+    const allUserStats = await db.select().from(userStats);
+    
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+    
+    const activeUsers = allUserStats.filter(s => 
+      s.lastActiveDate && new Date(s.lastActiveDate) >= sevenDaysAgo
+    ).length;
+    
+    const uniqueEnrollments = new Set(allProgress.map(p => `${p.userId}-${p.topicId}`)).size;
+    
+    const completedProgress = allProgress.filter(p => p.status === 'completed');
+    const avgQuizScore = completedProgress.length > 0
+      ? completedProgress.reduce((sum, p) => sum + (p.quizScore || 0), 0) / completedProgress.length
+      : 0;
+    
+    const userTopicProgress: { [key: string]: { completed: number; total: number } } = {};
+    allProgress.forEach(p => {
+      const key = `${p.userId}-${p.topicId}`;
+      if (!userTopicProgress[key]) {
+        userTopicProgress[key] = { completed: 0, total: 0 };
+      }
+      userTopicProgress[key].total++;
+      if (p.status === 'completed') {
+        userTopicProgress[key].completed++;
+      }
+    });
+    
+    const completionRates = Object.values(userTopicProgress).map(v => 
+      v.total > 0 ? (v.completed / v.total) * 100 : 0
+    );
+    const avgCompletionRate = completionRates.length > 0
+      ? completionRates.reduce((a, b) => a + b, 0) / completionRates.length
+      : 0;
+
+    return {
+      totalUsers: allUsers.filter(u => u.role === 'Learner').length,
+      totalCourses: allTopics.length,
+      totalEnrollments: uniqueEnrollments,
+      averageCompletionRate: Math.round(avgCompletionRate),
+      averageQuizScore: Math.round(avgQuizScore),
+      activeUsersLast7Days: activeUsers,
+    };
+  }
+
+  async getCourseAnalytics(): Promise<CourseAnalytics[]> {
+    const allTopics = await db.select().from(topics);
+    const allProgress = await db.select().from(moduleProgress);
+    
+    return allTopics.map(topic => {
+      const topicProgress = allProgress.filter(p => p.topicId === topic.id);
+      const userIds = Array.from(new Set(topicProgress.map(p => p.userId)));
+      
+      const modules = (topic.modules as any[]) || [];
+      const moduleCount = modules.length;
+      
+      let completedUsers = 0;
+      let inProgressUsers = 0;
+      
+      userIds.forEach(userId => {
+        const userModuleProgress = topicProgress.filter(p => p.userId === userId);
+        const completedModules = userModuleProgress.filter(p => p.status === 'completed').length;
+        
+        if (completedModules === moduleCount && moduleCount > 0) {
+          completedUsers++;
+        } else if (completedModules > 0) {
+          inProgressUsers++;
+        }
+      });
+      
+      const completionRate = userIds.length > 0 
+        ? Math.round((completedUsers / userIds.length) * 100) 
+        : 0;
+      
+      const scoresWithValues = topicProgress.filter(p => p.quizScore !== null && p.quizTotal !== null);
+      const avgScore = scoresWithValues.length > 0
+        ? Math.round(scoresWithValues.reduce((sum, p) => sum + ((p.quizScore! / p.quizTotal!) * 100), 0) / scoresWithValues.length)
+        : 0;
+      
+      return {
+        topicId: topic.id,
+        topicTitle: topic.title,
+        enrolledUsers: userIds.length,
+        completedUsers,
+        inProgressUsers,
+        completionRate,
+        averageQuizScore: avgScore,
+        moduleCount,
+      };
+    });
+  }
+
+  async getUserAnalytics(): Promise<UserAnalytics[]> {
+    const allUsers = await db.select().from(users);
+    const allProgress = await db.select().from(moduleProgress);
+    const allUserStats = await db.select().from(userStats);
+    const allTopics = await db.select().from(topics);
+    
+    return allUsers
+      .filter(u => u.role === 'Learner')
+      .map(user => {
+        const userProgress = allProgress.filter(p => p.userId === user.id);
+        const userStat = allUserStats.find(s => s.userId === user.id);
+        
+        const topicIds = Array.from(new Set(userProgress.map(p => p.topicId)));
+        
+        let coursesCompleted = 0;
+        topicIds.forEach(topicId => {
+          const topic = allTopics.find(t => t.id === topicId);
+          const modules = (topic?.modules as any[]) || [];
+          const moduleCount = modules.length;
+          const completedModules = userProgress.filter(
+            p => p.topicId === topicId && p.status === 'completed'
+          ).length;
+          
+          if (completedModules === moduleCount && moduleCount > 0) {
+            coursesCompleted++;
+          }
+        });
+        
+        const scoresWithValues = userProgress.filter(p => p.quizScore !== null && p.quizTotal !== null);
+        const avgScore = scoresWithValues.length > 0
+          ? Math.round(scoresWithValues.reduce((sum, p) => sum + ((p.quizScore! / p.quizTotal!) * 100), 0) / scoresWithValues.length)
+          : 0;
+        
+        return {
+          userId: user.id,
+          userName: user.name,
+          userEmail: user.email,
+          coursesEnrolled: topicIds.length,
+          coursesCompleted,
+          averageQuizScore: avgScore,
+          lastActiveDate: userStat?.lastActiveDate || null,
+        };
+      });
+  }
+
+  async getCourseUserProgress(topicId: string): Promise<CourseUserProgress[]> {
+    const topic = await this.getTopic(topicId);
+    if (!topic) return [];
+    
+    const allUsers = await db.select().from(users);
+    const topicProgress = await db.select().from(moduleProgress).where(eq(moduleProgress.topicId, topicId));
+    
+    const modules = (topic.modules as any[]) || [];
+    const totalModules = modules.length;
+    
+    const userIds = Array.from(new Set(topicProgress.map(p => p.userId)));
+    
+    return userIds.map(userId => {
+      const user = allUsers.find(u => u.id === userId);
+      const userModuleProgress = topicProgress.filter(p => p.userId === userId);
+      const completedModules = userModuleProgress.filter(p => p.status === 'completed').length;
+      
+      const latestProgress = userModuleProgress.sort((a, b) => 
+        new Date(b.updatedAt || 0).getTime() - new Date(a.updatedAt || 0).getTime()
+      )[0];
+      
+      let status = 'Not Started';
+      if (completedModules === totalModules && totalModules > 0) {
+        status = 'Completed';
+      } else if (completedModules > 0) {
+        status = 'In Progress';
+      }
+      
+      return {
+        userId,
+        userName: user?.name || 'Unknown',
+        userEmail: user?.email || '',
+        modulesCompleted: completedModules,
+        totalModules,
+        lastQuizScore: latestProgress?.quizScore || null,
+        status,
+        lastActivityDate: latestProgress?.updatedAt || null,
+      };
+    });
+  }
+
+  async getUserCourseProgress(userId: string): Promise<UserCourseProgress[]> {
+    const allTopics = await db.select().from(topics);
+    const userProgress = await db.select().from(moduleProgress).where(eq(moduleProgress.userId, userId));
+    
+    const topicIds = Array.from(new Set(userProgress.map(p => p.topicId)));
+    
+    return topicIds.map(topicId => {
+      const topic = allTopics.find(t => t.id === topicId);
+      const modules = (topic?.modules as any[]) || [];
+      const totalModules = modules.length;
+      
+      const topicModuleProgress = userProgress.filter(p => p.topicId === topicId);
+      const completedModules = topicModuleProgress.filter(p => p.status === 'completed').length;
+      
+      const scoresWithValues = topicModuleProgress.filter(p => p.quizScore !== null && p.quizTotal !== null);
+      const avgScore = scoresWithValues.length > 0
+        ? Math.round(scoresWithValues.reduce((sum, p) => sum + ((p.quizScore! / p.quizTotal!) * 100), 0) / scoresWithValues.length)
+        : 0;
+      
+      const latestProgress = topicModuleProgress.sort((a, b) => 
+        new Date(b.updatedAt || 0).getTime() - new Date(a.updatedAt || 0).getTime()
+      )[0];
+      
+      let status = 'Not Started';
+      if (completedModules === totalModules && totalModules > 0) {
+        status = 'Completed';
+      } else if (completedModules > 0) {
+        status = 'In Progress';
+      }
+      
+      return {
+        topicId,
+        topicTitle: topic?.title || 'Unknown Course',
+        modulesCompleted: completedModules,
+        totalModules,
+        averageQuizScore: avgScore,
+        status,
+        lastActivityDate: latestProgress?.updatedAt || null,
+      };
+    });
   }
 
   async hashPassword(password: string): Promise<string> {
