@@ -14,6 +14,7 @@ import Dashboard from "./components/Dashboard";
 import TopicSwiperView from "./components/TopicSwiperView";
 import Chatbot from "./components/Chatbot";
 import CreatorDashboard from "./components/CreatorDashboard";
+import SuperAdminDashboard from "./components/SuperAdminDashboard";
 import { MessageSquareIcon } from "./components/icons";
 import { Button } from "@/components/ui/button";
 
@@ -428,11 +429,13 @@ function App() {
   // Determine current route context
   const isAdminRoute = location === '/admin';
   const isCreatorRoute = location === '/creatorstudio';
+  const isSuperAdminRoute = location === '/superadmin';
   const isAdminOrCreatorRoute = isAdminRoute || isCreatorRoute;
 
   // Role-based route access
-  const canAccessAdmin = currentUser.role === 'Admin';
-  const canAccessCreator = currentUser.role === 'Creator' || currentUser.role === 'Admin';
+  const canAccessSuperAdmin = currentUser.role === 'SuperAdmin';
+  const canAccessAdmin = currentUser.role === 'Admin' || currentUser.role === 'OrgAdmin';
+  const canAccessCreator = currentUser.role === 'Creator' || currentUser.role === 'Admin' || currentUser.role === 'OrgAdmin';
 
   // Topic view wrapper component
   const TopicViewRoute = () => {
@@ -474,6 +477,17 @@ function App() {
             {/* Topic Swiper View - Full screen overlay */}
             <Route path="/topic/:id">
               <TopicViewRoute />
+            </Route>
+
+            {/* SuperAdmin Dashboard - SuperAdmin only */}
+            <Route path="/superadmin">
+              {canAccessSuperAdmin ? (
+                <main className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8 py-8">
+                  <SuperAdminDashboard currentUser={currentUser} />
+                </main>
+              ) : (
+                <Redirect to="/" />
+              )}
             </Route>
 
             {/* Admin Portal - Admin only */}

@@ -2,7 +2,7 @@ import { useLocation } from 'wouter';
 import { User, UserRole } from '../types';
 import { SkillShotsLogo, UserCircleIcon, LogOutIcon, EditIcon, ClipboardListIcon, BrainIcon } from './icons';
 import { Button } from '@/components/ui/button';
-import { BookOpen } from 'lucide-react';
+import { BookOpen, Crown } from 'lucide-react';
 
 interface HeaderProps {
   user: User;
@@ -12,15 +12,19 @@ interface HeaderProps {
 
 export default function Header({ user, onLogout, currentRoute }: HeaderProps) {
   const [, setLocation] = useLocation();
-  const isAdmin = user.role === UserRole.Admin;
-  const isCreator = user.role === UserRole.Creator;
+  const role = user.role as string;
+  const isSuperAdmin = role === 'SuperAdmin';
+  const isOrgAdmin = role === 'OrgAdmin';
+  const isAdmin = role === 'Admin' || isOrgAdmin;
+  const isCreator = role === 'Creator';
   const canAccessAdmin = isAdmin || isCreator;
 
   const isOnAdminRoute = currentRoute === '/admin';
   const isOnCreatorRoute = currentRoute === '/creatorstudio';
+  const isOnSuperAdminRoute = currentRoute === '/superadmin';
   const isOnCoursesRoute = currentRoute === '/courses';
   const isOnSopsRoute = currentRoute === '/sops';
-  const isOnManagementRoute = isOnAdminRoute || isOnCreatorRoute;
+  const isOnManagementRoute = isOnAdminRoute || isOnCreatorRoute || isOnSuperAdminRoute;
 
   const getAdminButtonLabel = () => {
     if (isAdmin) {
@@ -81,7 +85,18 @@ export default function Header({ user, onLogout, currentRoute }: HeaderProps) {
         </div>
 
         <div className="flex items-center gap-4 flex-wrap">
-          {canAccessAdmin && (
+          {isSuperAdmin && (
+            <Button
+              variant={isOnSuperAdminRoute ? "default" : "secondary"}
+              onClick={() => setLocation(isOnSuperAdminRoute ? '/' : '/superadmin')}
+              className="hidden sm:flex items-center"
+              data-testid="button-superadmin-portal"
+            >
+              <Crown className="h-4 w-4 mr-1.5" />
+              {isOnSuperAdminRoute ? "Back to Home" : "Platform Admin"}
+            </Button>
+          )}
+          {canAccessAdmin && !isSuperAdmin && (
             <Button
               variant={isOnManagementRoute ? "default" : "secondary"}
               onClick={handleAdminClick}
