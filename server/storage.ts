@@ -1,5 +1,5 @@
 import { db } from "./db";
-import { eq, and, inArray, desc, sql } from "drizzle-orm";
+import { eq, and, inArray, desc, sql, isNull } from "drizzle-orm";
 import {
   users,
   groups,
@@ -10,6 +10,10 @@ import {
   categories,
   moduleProgress,
   courseCompletions,
+  organizations,
+  licensePlans,
+  organizationLicenses,
+  organizationMemberships,
   type User,
   type InsertUser,
   type Group,
@@ -28,6 +32,14 @@ import {
   type InsertModuleProgress,
   type CourseCompletion,
   type InsertCourseCompletion,
+  type Organization,
+  type InsertOrganization,
+  type LicensePlan,
+  type InsertLicensePlan,
+  type OrganizationLicense,
+  type InsertOrganizationLicense,
+  type OrganizationMembership,
+  type InsertOrganizationMembership,
 } from "@shared/schema";
 import bcrypt from "bcrypt";
 
@@ -88,6 +100,37 @@ export interface IStorage {
   
   hashPassword(password: string): Promise<string>;
   comparePassword(password: string, hash: string): Promise<boolean>;
+  
+  // Organization management
+  getOrganization(id: string): Promise<Organization | undefined>;
+  getOrganizationBySlug(slug: string): Promise<Organization | undefined>;
+  getAllOrganizations(): Promise<Organization[]>;
+  createOrganization(org: InsertOrganization): Promise<Organization>;
+  updateOrganization(id: string, data: Partial<InsertOrganization>): Promise<Organization | undefined>;
+  deleteOrganization(id: string): Promise<boolean>;
+  
+  // License plan management
+  getLicensePlan(id: string): Promise<LicensePlan | undefined>;
+  getAllLicensePlans(): Promise<LicensePlan[]>;
+  createLicensePlan(plan: InsertLicensePlan): Promise<LicensePlan>;
+  
+  // Organization license management
+  getOrganizationLicense(organizationId: string): Promise<OrganizationLicense | undefined>;
+  createOrganizationLicense(license: InsertOrganizationLicense): Promise<OrganizationLicense>;
+  updateOrganizationLicense(id: string, data: Partial<InsertOrganizationLicense>): Promise<OrganizationLicense | undefined>;
+  checkLicenseLimits(organizationId: string): Promise<{ withinLimits: boolean; limits: LicensePlan | null; usage: OrganizationLicense | null }>;
+  
+  // Organization membership management
+  getOrganizationMembership(userId: string, organizationId: string): Promise<OrganizationMembership | undefined>;
+  getOrganizationMembers(organizationId: string): Promise<OrganizationMembership[]>;
+  getUserOrganizations(userId: string): Promise<OrganizationMembership[]>;
+  createOrganizationMembership(membership: InsertOrganizationMembership): Promise<OrganizationMembership>;
+  updateOrganizationMembership(id: string, data: Partial<InsertOrganizationMembership>): Promise<OrganizationMembership | undefined>;
+  removeOrganizationMembership(userId: string, organizationId: string): Promise<boolean>;
+  
+  // Organization-scoped queries
+  getUsersByOrganization(organizationId: string): Promise<User[]>;
+  getTopicsByOrganization(organizationId: string): Promise<Topic[]>;
 }
 
 export interface AnalyticsOverview {
@@ -697,6 +740,187 @@ export class DatabaseStorage implements IStorage {
 
   async comparePassword(password: string, hash: string): Promise<boolean> {
     return bcrypt.compare(password, hash);
+  }
+
+  // ==================== ORGANIZATION MANAGEMENT ====================
+
+  async getOrganization(id: string): Promise<Organization | undefined> {
+    const result = await db.select().from(organizations).where(eq(organizations.id, id)).limit(1);
+    return result[0];
+  }
+
+  async getOrganizationBySlug(slug: string): Promise<Organization | undefined> {
+    const result = await db.select().from(organizations).where(eq(organizations.slug, slug)).limit(1);
+    return result[0];
+  }
+
+  async getAllOrganizations(): Promise<Organization[]> {
+    return db.select().from(organizations).orderBy(desc(organizations.createdAt));
+  }
+
+  async createOrganization(org: InsertOrganization): Promise<Organization> {
+    const result = await db.insert(organizations).values(org).returning();
+    return result[0];
+  }
+
+  async updateOrganization(id: string, data: Partial<InsertOrganization>): Promise<Organization | undefined> {
+    const result = await db.update(organizations)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(organizations.id, id))
+      .returning();
+    return result[0];
+  }
+
+  async deleteOrganization(id: string): Promise<boolean> {
+    const result = await db.delete(organizations).where(eq(organizations.id, id)).returning();
+    return result.length > 0;
+  }
+
+  // ==================== LICENSE PLAN MANAGEMENT ====================
+
+  async getLicensePlan(id: string): Promise<LicensePlan | undefined> {
+    const result = await db.select().from(licensePlans).where(eq(licensePlans.id, id)).limit(1);
+    return result[0];
+  }
+
+  async getAllLicensePlans(): Promise<LicensePlan[]> {
+    return db.select().from(licensePlans).where(eq(licensePlans.isActive, true));
+  }
+
+  async createLicensePlan(plan: InsertLicensePlan): Promise<LicensePlan> {
+    const result = await db.insert(licensePlans).values(plan).returning();
+    return result[0];
+  }
+
+  // ==================== ORGANIZATION LICENSE MANAGEMENT ====================
+
+  async getOrganizationLicense(organizationId: string): Promise<OrganizationLicense | undefined> {
+    const result = await db.select().from(organizationLicenses)
+      .where(eq(organizationLicenses.organizationId, organizationId))
+      .limit(1);
+    return result[0];
+  }
+
+  async createOrganizationLicense(license: InsertOrganizationLicense): Promise<OrganizationLicense> {
+    const result = await db.insert(organizationLicenses).values(license).returning();
+    return result[0];
+  }
+
+  async updateOrganizationLicense(id: string, data: Partial<InsertOrganizationLicense>): Promise<OrganizationLicense | undefined> {
+    const result = await db.update(organizationLicenses)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(organizationLicenses.id, id))
+      .returning();
+    return result[0];
+  }
+
+  async checkLicenseLimits(organizationId: string): Promise<{ withinLimits: boolean; limits: LicensePlan | null; usage: OrganizationLicense | null }> {
+    const license = await this.getOrganizationLicense(organizationId);
+    if (!license) {
+      return { withinLimits: false, limits: null, usage: null };
+    }
+
+    const plan = await this.getLicensePlan(license.planId);
+    if (!plan) {
+      return { withinLimits: false, limits: null, usage: license };
+    }
+
+    const withinLimits = 
+      license.currentUsers < plan.maxUsers &&
+      license.currentCreators < plan.maxCreators &&
+      license.currentCourses < plan.maxCourses;
+
+    return { withinLimits, limits: plan, usage: license };
+  }
+
+  // ==================== ORGANIZATION MEMBERSHIP MANAGEMENT ====================
+
+  async getOrganizationMembership(userId: string, organizationId: string): Promise<OrganizationMembership | undefined> {
+    const result = await db.select().from(organizationMemberships)
+      .where(and(
+        eq(organizationMemberships.userId, userId),
+        eq(organizationMemberships.organizationId, organizationId)
+      ))
+      .limit(1);
+    return result[0];
+  }
+
+  async getOrganizationMembers(organizationId: string): Promise<OrganizationMembership[]> {
+    return db.select().from(organizationMemberships)
+      .where(and(
+        eq(organizationMemberships.organizationId, organizationId),
+        eq(organizationMemberships.isActive, true)
+      ));
+  }
+
+  async getUserOrganizations(userId: string): Promise<OrganizationMembership[]> {
+    return db.select().from(organizationMemberships)
+      .where(and(
+        eq(organizationMemberships.userId, userId),
+        eq(organizationMemberships.isActive, true)
+      ));
+  }
+
+  async createOrganizationMembership(membership: InsertOrganizationMembership): Promise<OrganizationMembership> {
+    const result = await db.insert(organizationMemberships).values(membership).returning();
+    
+    // Update license usage counts
+    const license = await this.getOrganizationLicense(membership.organizationId);
+    if (license) {
+      const updateData: Partial<InsertOrganizationLicense> = {
+        currentUsers: license.currentUsers + 1,
+      };
+      if (membership.role === 'Creator') {
+        updateData.currentCreators = license.currentCreators + 1;
+      }
+      await this.updateOrganizationLicense(license.id, updateData);
+    }
+    
+    return result[0];
+  }
+
+  async updateOrganizationMembership(id: string, data: Partial<InsertOrganizationMembership>): Promise<OrganizationMembership | undefined> {
+    const result = await db.update(organizationMemberships)
+      .set(data)
+      .where(eq(organizationMemberships.id, id))
+      .returning();
+    return result[0];
+  }
+
+  async removeOrganizationMembership(userId: string, organizationId: string): Promise<boolean> {
+    const membership = await this.getOrganizationMembership(userId, organizationId);
+    if (!membership) return false;
+
+    const result = await db.update(organizationMemberships)
+      .set({ isActive: false })
+      .where(eq(organizationMemberships.id, membership.id))
+      .returning();
+
+    // Update license usage counts
+    if (result.length > 0) {
+      const license = await this.getOrganizationLicense(organizationId);
+      if (license) {
+        const updateData: Partial<InsertOrganizationLicense> = {
+          currentUsers: Math.max(0, license.currentUsers - 1),
+        };
+        if (membership.role === 'Creator') {
+          updateData.currentCreators = Math.max(0, license.currentCreators - 1);
+        }
+        await this.updateOrganizationLicense(license.id, updateData);
+      }
+    }
+
+    return result.length > 0;
+  }
+
+  // ==================== ORGANIZATION-SCOPED QUERIES ====================
+
+  async getUsersByOrganization(organizationId: string): Promise<User[]> {
+    return db.select().from(users).where(eq(users.organizationId, organizationId));
+  }
+
+  async getTopicsByOrganization(organizationId: string): Promise<Topic[]> {
+    return db.select().from(topics).where(eq(topics.organizationId, organizationId));
   }
 }
 
