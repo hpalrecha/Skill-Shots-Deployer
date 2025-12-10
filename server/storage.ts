@@ -113,6 +113,8 @@ export interface IStorage {
   getLicensePlan(id: string): Promise<LicensePlan | undefined>;
   getAllLicensePlans(): Promise<LicensePlan[]>;
   createLicensePlan(plan: InsertLicensePlan): Promise<LicensePlan>;
+  updateLicensePlan(id: string, data: Partial<InsertLicensePlan>): Promise<LicensePlan | undefined>;
+  deleteLicensePlan(id: string): Promise<boolean>;
   
   // Organization license management
   getOrganizationLicense(organizationId: string): Promise<OrganizationLicense | undefined>;
@@ -790,6 +792,21 @@ export class DatabaseStorage implements IStorage {
   async createLicensePlan(plan: InsertLicensePlan): Promise<LicensePlan> {
     const result = await db.insert(licensePlans).values(plan).returning();
     return result[0];
+  }
+
+  async updateLicensePlan(id: string, data: Partial<InsertLicensePlan>): Promise<LicensePlan | undefined> {
+    const result = await db.update(licensePlans)
+      .set(data)
+      .where(eq(licensePlans.id, id))
+      .returning();
+    return result[0];
+  }
+
+  async deleteLicensePlan(id: string): Promise<boolean> {
+    const result = await db.delete(licensePlans)
+      .where(eq(licensePlans.id, id))
+      .returning();
+    return result.length > 0;
   }
 
   // ==================== ORGANIZATION LICENSE MANAGEMENT ====================

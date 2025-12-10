@@ -68,6 +68,8 @@ export default function SuperAdminDashboard({ currentUser }: SuperAdminDashboard
   const [isCreateOrgDialogOpen, setIsCreateOrgDialogOpen] = useState(false);
   const [selectedOrg, setSelectedOrg] = useState<Organization | null>(null);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [selectedPlan, setSelectedPlan] = useState<LicensePlan | null>(null);
+  const [isEditPlanDialogOpen, setIsEditPlanDialogOpen] = useState(false);
   
   const { toast } = useToast();
 
@@ -217,6 +219,74 @@ export default function SuperAdminDashboard({ currentUser }: SuperAdminDashboard
       toast({
         title: "Error",
         description: "Failed to delete organization",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleUpdateLicensePlan = async (planId: string, data: Partial<LicensePlan>) => {
+    try {
+      const response = await fetch(`/api/license-plans/${planId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify(data),
+      });
+
+      if (response.ok) {
+        toast({
+          title: "Success",
+          description: "License plan updated successfully",
+        });
+        setIsEditPlanDialogOpen(false);
+        setSelectedPlan(null);
+        fetchData();
+      } else {
+        const error = await response.json();
+        toast({
+          title: "Error",
+          description: error.error || "Failed to update license plan",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to update license plan",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleDeleteLicensePlan = async (planId: string) => {
+    if (!window.confirm('Are you sure you want to delete this license plan? This action cannot be undone.')) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/license-plans/${planId}`, {
+        method: 'DELETE',
+        credentials: 'include',
+      });
+
+      if (response.ok) {
+        toast({
+          title: "Success",
+          description: "License plan deleted successfully",
+        });
+        fetchData();
+      } else {
+        const error = await response.json();
+        toast({
+          title: "Error",
+          description: error.error || "Failed to delete license plan",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to delete license plan",
         variant: "destructive",
       });
     }
@@ -553,6 +623,29 @@ export default function SuperAdminDashboard({ currentUser }: SuperAdminDashboard
                         ))}
                     </div>
                   </div>
+                  <div className="pt-4 flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="flex-1"
+                      onClick={() => {
+                        setSelectedPlan(plan);
+                        setIsEditPlanDialogOpen(true);
+                      }}
+                      data-testid={`button-edit-plan-${plan.id}`}
+                    >
+                      <Edit2 className="h-4 w-4 mr-1" />
+                      Edit
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleDeleteLicensePlan(plan.id)}
+                      data-testid={`button-delete-plan-${plan.id}`}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
                 </CardContent>
               </Card>
             ))}
@@ -614,6 +707,139 @@ export default function SuperAdminDashboard({ currentUser }: SuperAdminDashboard
                 isActive: selectedOrg.isActive,
               })}
               data-testid="button-save-org"
+            >
+              Save Changes
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isEditPlanDialogOpen} onOpenChange={setIsEditPlanDialogOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Edit License Plan</DialogTitle>
+            <DialogDescription>
+              Update license plan details and limits.
+            </DialogDescription>
+          </DialogHeader>
+          {selectedPlan && (
+            <div className="space-y-4 py-4 max-h-[60vh] overflow-y-auto">
+              <div className="space-y-2">
+                <Label htmlFor="edit-plan-name">Plan Name</Label>
+                <Input
+                  id="edit-plan-name"
+                  data-testid="input-edit-plan-name"
+                  value={selectedPlan.name}
+                  onChange={(e) => setSelectedPlan(prev => prev ? { ...prev, name: e.target.value } : null)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-plan-description">Description</Label>
+                <Textarea
+                  id="edit-plan-description"
+                  data-testid="input-edit-plan-description"
+                  value={selectedPlan.description || ''}
+                  onChange={(e) => setSelectedPlan(prev => prev ? { ...prev, description: e.target.value } : null)}
+                  rows={2}
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="edit-plan-price">Monthly Price ($)</Label>
+                  <Input
+                    id="edit-plan-price"
+                    data-testid="input-edit-plan-price"
+                    type="number"
+                    value={selectedPlan.priceMonthly || ''}
+                    onChange={(e) => setSelectedPlan(prev => prev ? { ...prev, priceMonthly: e.target.value } : null)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-plan-yearly">Yearly Price ($)</Label>
+                  <Input
+                    id="edit-plan-yearly"
+                    data-testid="input-edit-plan-yearly"
+                    type="number"
+                    value={selectedPlan.priceYearly || ''}
+                    onChange={(e) => setSelectedPlan(prev => prev ? { ...prev, priceYearly: e.target.value } : null)}
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="edit-plan-users">Max Users</Label>
+                  <Input
+                    id="edit-plan-users"
+                    data-testid="input-edit-plan-users"
+                    type="number"
+                    value={selectedPlan.maxUsers}
+                    onChange={(e) => setSelectedPlan(prev => prev ? { ...prev, maxUsers: parseInt(e.target.value) || 0 } : null)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-plan-creators">Max Creators</Label>
+                  <Input
+                    id="edit-plan-creators"
+                    data-testid="input-edit-plan-creators"
+                    type="number"
+                    value={selectedPlan.maxCreators}
+                    onChange={(e) => setSelectedPlan(prev => prev ? { ...prev, maxCreators: parseInt(e.target.value) || 0 } : null)}
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="edit-plan-courses">Max Courses</Label>
+                  <Input
+                    id="edit-plan-courses"
+                    data-testid="input-edit-plan-courses"
+                    type="number"
+                    value={selectedPlan.maxCourses}
+                    onChange={(e) => setSelectedPlan(prev => prev ? { ...prev, maxCourses: parseInt(e.target.value) || 0 } : null)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-plan-storage">Storage (MB)</Label>
+                  <Input
+                    id="edit-plan-storage"
+                    data-testid="input-edit-plan-storage"
+                    type="number"
+                    value={selectedPlan.maxStorageMb}
+                    onChange={(e) => setSelectedPlan(prev => prev ? { ...prev, maxStorageMb: parseInt(e.target.value) || 0 } : null)}
+                  />
+                </div>
+              </div>
+              <div className="flex items-center justify-between">
+                <Label htmlFor="edit-plan-active">Active Status</Label>
+                <Switch
+                  id="edit-plan-active"
+                  data-testid="switch-plan-active"
+                  checked={selectedPlan.isActive}
+                  onCheckedChange={(checked) => setSelectedPlan(prev => prev ? { ...prev, isActive: checked } : null)}
+                />
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => {
+              setIsEditPlanDialogOpen(false);
+              setSelectedPlan(null);
+            }}>
+              Cancel
+            </Button>
+            <Button 
+              onClick={() => selectedPlan && handleUpdateLicensePlan(selectedPlan.id, {
+                name: selectedPlan.name,
+                description: selectedPlan.description,
+                priceMonthly: selectedPlan.priceMonthly,
+                priceYearly: selectedPlan.priceYearly,
+                maxUsers: selectedPlan.maxUsers,
+                maxCreators: selectedPlan.maxCreators,
+                maxCourses: selectedPlan.maxCourses,
+                maxStorageMb: selectedPlan.maxStorageMb,
+                isActive: selectedPlan.isActive,
+              })}
+              data-testid="button-save-plan"
             >
               Save Changes
             </Button>

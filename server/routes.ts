@@ -1430,6 +1430,54 @@ Requirements:
     }
   });
 
+  // SuperAdmin: Update license plan
+  app.put("/api/license-plans/:id", async (req, res) => {
+    try {
+      const userId = req.session.userId;
+      if (!userId) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+      
+      const user = await storage.getUser(userId);
+      if (!user || user.role !== "SuperAdmin") {
+        return res.status(403).json({ error: "Access denied. SuperAdmin required." });
+      }
+      
+      const plan = await storage.updateLicensePlan(req.params.id, req.body);
+      if (!plan) {
+        return res.status(404).json({ error: "License plan not found" });
+      }
+      res.json(plan);
+    } catch (error: any) {
+      console.error("Update license plan error:", error);
+      res.status(500).json({ error: error.message || "Failed to update license plan" });
+    }
+  });
+
+  // SuperAdmin: Delete license plan
+  app.delete("/api/license-plans/:id", async (req, res) => {
+    try {
+      const userId = req.session.userId;
+      if (!userId) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+      
+      const user = await storage.getUser(userId);
+      if (!user || user.role !== "SuperAdmin") {
+        return res.status(403).json({ error: "Access denied. SuperAdmin required." });
+      }
+      
+      const success = await storage.deleteLicensePlan(req.params.id);
+      if (!success) {
+        return res.status(404).json({ error: "License plan not found" });
+      }
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error("Delete license plan error:", error);
+      res.status(500).json({ error: error.message || "Failed to delete license plan" });
+    }
+  });
+
   // ==================== ORGANIZATION MEMBERSHIP API ====================
 
   // OrgAdmin: Get organization members
