@@ -79,12 +79,25 @@ interface UserCourseProgress {
   lastActivityDate: string | null;
 }
 
+interface BadgeAnalytics {
+  id: string;
+  userId: string;
+  userName: string;
+  userEmail: string;
+  topicId: string;
+  topicTitle: string;
+  averageScore: number;
+  totalModules: number;
+  completedAt: string;
+}
+
 export default function AnalyticsDashboard() {
   const [isLoading, setIsLoading] = useState(true);
   const [overview, setOverview] = useState<AnalyticsOverview | null>(null);
   const [courseAnalytics, setCourseAnalytics] = useState<CourseAnalytics[]>([]);
   const [userAnalytics, setUserAnalytics] = useState<UserAnalytics[]>([]);
-  const [activeTab, setActiveTab] = useState<'courses' | 'users'>('courses');
+  const [badgeAnalytics, setBadgeAnalytics] = useState<BadgeAnalytics[]>([]);
+  const [activeTab, setActiveTab] = useState<'courses' | 'users' | 'badges'>('courses');
   
   const [selectedCourse, setSelectedCourse] = useState<CourseAnalytics | null>(null);
   const [courseUsers, setCourseUsers] = useState<CourseUserProgress[]>([]);
@@ -101,15 +114,17 @@ export default function AnalyticsDashboard() {
   const loadAnalytics = async () => {
     setIsLoading(true);
     try {
-      const [overviewRes, coursesRes, usersRes] = await Promise.all([
+      const [overviewRes, coursesRes, usersRes, badgesRes] = await Promise.all([
         fetch('/api/admin/analytics/overview'),
         fetch('/api/admin/analytics/courses'),
         fetch('/api/admin/analytics/users'),
+        fetch('/api/admin/analytics/badges'),
       ]);
 
       if (overviewRes.ok) setOverview(await overviewRes.json());
       if (coursesRes.ok) setCourseAnalytics(await coursesRes.json());
       if (usersRes.ok) setUserAnalytics(await usersRes.json());
+      if (badgesRes.ok) setBadgeAnalytics(await badgesRes.json());
     } catch (error) {
       console.error('Failed to load analytics:', error);
     } finally {
@@ -271,6 +286,14 @@ export default function AnalyticsDashboard() {
         >
           User Analytics
         </Button>
+        <Button
+          variant="ghost"
+          className={`rounded-none border-b-2 ${activeTab === 'badges' ? 'border-primary text-primary' : 'border-transparent'}`}
+          onClick={() => setActiveTab('badges')}
+          data-testid="tab-badges"
+        >
+          Badges Earned ({badgeAnalytics.length})
+        </Button>
       </div>
 
       {/* Course Analytics Table */}
@@ -371,6 +394,50 @@ export default function AnalyticsDashboard() {
                       >
                         View Courses <ChevronRight className="h-4 w-4 ml-1" />
                       </Button>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </Card>
+      )}
+
+      {/* Badges Analytics Table */}
+      {activeTab === 'badges' && (
+        <Card className="p-0 overflow-hidden" data-testid="badges-analytics-table">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>User</TableHead>
+                <TableHead>Email</TableHead>
+                <TableHead>Course Completed</TableHead>
+                <TableHead className="text-center">Modules</TableHead>
+                <TableHead className="text-center">Average Score</TableHead>
+                <TableHead className="text-center">Earned On</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {badgeAnalytics.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
+                    No badges earned yet
+                  </TableCell>
+                </TableRow>
+              ) : (
+                badgeAnalytics.map((badge) => (
+                  <TableRow key={badge.id} data-testid={`badge-row-${badge.id}`}>
+                    <TableCell className="font-medium">{badge.userName}</TableCell>
+                    <TableCell className="text-muted-foreground">{badge.userEmail}</TableCell>
+                    <TableCell className="font-medium">{badge.topicTitle}</TableCell>
+                    <TableCell className="text-center">{badge.totalModules}</TableCell>
+                    <TableCell className="text-center">
+                      <Badge className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
+                        {badge.averageScore}%
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-center text-muted-foreground">
+                      {formatDate(badge.completedAt)}
                     </TableCell>
                   </TableRow>
                 ))

@@ -906,6 +906,35 @@ Requirements:
     }
   });
 
+  app.get("/api/admin/analytics/badges", async (req, res) => {
+    try {
+      const completions = await storage.getAllCourseCompletions();
+      const allUsers = await storage.getAllUsers();
+      const allTopics = await storage.getAllTopics();
+      
+      const badgeData = completions.map(c => {
+        const user = allUsers.find(u => u.id === c.userId);
+        const topic = allTopics.find(t => t.id === c.topicId);
+        return {
+          id: c.id,
+          userId: c.userId,
+          userName: user?.name || 'Unknown',
+          userEmail: user?.email || '',
+          topicId: c.topicId,
+          topicTitle: topic?.title || 'Unknown Course',
+          averageScore: c.averageScore,
+          totalModules: c.totalModules,
+          completedAt: c.completedAt,
+        };
+      });
+      
+      res.json(badgeData);
+    } catch (error: any) {
+      console.error("Get badge analytics error:", error);
+      res.status(500).json({ error: error.message || "Failed to get badge analytics" });
+    }
+  });
+
   app.get("/api/topics", async (req, res) => {
     try {
       const topics = await storage.getAllTopics();
