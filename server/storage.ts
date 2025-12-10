@@ -8,6 +8,7 @@ import {
   userStats,
   leaderboard,
   categories,
+  moduleProgress,
   type User,
   type InsertUser,
   type Group,
@@ -22,6 +23,8 @@ import {
   type InsertLeaderboard,
   type Category,
   type InsertCategory,
+  type ModuleProgress,
+  type InsertModuleProgress,
 } from "@shared/schema";
 import bcrypt from "bcrypt";
 
@@ -62,6 +65,10 @@ export interface IStorage {
   getUserStats(userId: string): Promise<UserStats | undefined>;
   updateUserStats(userId: string, data: Partial<InsertUserStats>): Promise<UserStats>;
   recordActivity(userId: string): Promise<UserStats>;
+  
+  getModuleProgress(userId: string, topicId: string, moduleId: string): Promise<ModuleProgress | undefined>;
+  getModuleProgressForTopic(userId: string, topicId: string): Promise<ModuleProgress[]>;
+  createOrUpdateModuleProgress(progress: InsertModuleProgress): Promise<ModuleProgress>;
   
   hashPassword(password: string): Promise<string>;
   comparePassword(password: string, hash: string): Promise<boolean>;
@@ -282,6 +289,38 @@ export class DatabaseStorage implements IStorage {
       lastActiveDate: new Date(),
       updatedAt: new Date(),
     }).where(eq(userStats.userId, userId)).returning();
+    return result[0];
+  }
+
+  async getModuleProgress(userId: string, topicId: string, moduleId: string): Promise<ModuleProgress | undefined> {
+    const result = await db.select().from(moduleProgress)
+      .where(and(
+        eq(moduleProgress.userId, userId),
+        eq(moduleProgress.topicId, topicId),
+        eq(moduleProgress.moduleId, moduleId)
+      ))
+      .limit(1);
+    return result[0];
+  }
+
+  async getModuleProgressForTopic(userId: string, topicId: string): Promise<ModuleProgress[]> {
+    return db.select().from(moduleProgress)
+      .where(and(
+        eq(moduleProgress.userId, userId),
+        eq(moduleProgress.topicId, topicId)
+      ));
+  }
+
+  async createOrUpdateModuleProgress(progress: InsertModuleProgress): Promise<ModuleProgress> {
+    const existing = await this.getModuleProgress(progress.userId, progress.topicId, progress.moduleId);
+    if (existing) {
+      const result = await db.update(moduleProgress).set({
+        ...progress,
+        updatedAt: new Date(),
+      }).where(eq(moduleProgress.id, existing.id)).returning();
+      return result[0];
+    }
+    const result = await db.insert(moduleProgress).values(progress).returning();
     return result[0];
   }
 

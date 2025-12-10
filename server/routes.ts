@@ -291,6 +291,188 @@ Requirements:
     }
   });
 
+  // Generate course modules from content
+  app.post("/api/gemini/generate-modules", async (req, res) => {
+    try {
+      const { content, title } = req.body;
+      
+      if (!content || !Array.isArray(content)) {
+        return res.status(400).json({ error: "Content blocks are required" });
+      }
+
+      const parts = buildMultimodalParts(content);
+      
+      if (parts.length === 0) {
+        return res.status(400).json({ error: "No valid content found to generate modules" });
+      }
+
+      const systemPrompt = `You are an instructional designer creating a structured course from the provided content. Analyze the content (which may include text, documents, and images) and split it into logical learning modules.
+
+COURSE TITLE: ${title || 'Untitled Course'}
+
+Generate 3-6 well-structured learning modules based on the content. Each module should cover a distinct topic or skill area.
+
+Output ONLY valid JSON in this exact format:
+{
+  "modules": [
+    {
+      "id": "module-1",
+      "title": "Module Title",
+      "summary": "Brief 2-3 sentence summary of what this module covers",
+      "learningObjectives": ["Objective 1", "Objective 2", "Objective 3"],
+      "contentBlocks": [
+        {"type": "paragraph", "content": "Detailed content for this module...", "order": 1}
+      ],
+      "suggestedVideoTopics": ["Topic for supplementary video 1", "Topic 2"],
+      "order": 1
+    }
+  ]
+}
+
+Requirements:
+- Create 3-6 modules based on content complexity
+- Each module should have 2-4 learning objectives
+- Each module should have 2-4 content paragraphs (100-200 words each)
+- Suggest 1-3 video topics per module that would enhance learning
+- Content should be educational, professional, and actionable
+- Maintain logical flow between modules
+- Output ONLY valid JSON, no other text`;
+
+      parts.unshift({ text: systemPrompt });
+
+      const response = await ai.models.generateContent({
+        model: "gemini-2.5-pro",
+        contents: [{ role: "user", parts }],
+      });
+
+      const responseText = response.text || "{}";
+      
+      const jsonMatch = responseText.match(/\{[\s\S]*\}/);
+      if (!jsonMatch) {
+        throw new Error("No valid JSON found in response");
+      }
+
+      const modulesData = JSON.parse(jsonMatch[0]);
+      
+      // Transform modules to include empty videos array
+      if (modulesData.modules) {
+        modulesData.modules = modulesData.modules.map((m: any, idx: number) => ({
+          ...m,
+          id: m.id || `module-${idx + 1}`,
+          videos: [],
+          order: m.order || idx + 1
+        }));
+      }
+      
+      res.json(modulesData);
+    } catch (error: any) {
+      console.error("Module generation error:", error);
+      res.status(500).json({ error: error.message || "Failed to generate modules" });
+    }
+  });
+
+  // Generate quiz for a specific module
+  app.post("/api/gemini/generate-module-quiz", async (req, res) => {
+    try {
+      const { moduleContent, moduleTitle } = req.body;
+      
+      if (!moduleContent) {
+        return res.status(400).json({ error: "Module content is required" });
+      }
+
+      const systemPrompt = `You are creating a quiz to test understanding of a course module.
+
+MODULE TITLE: ${moduleTitle || 'Module'}
+
+MODULE CONTENT:
+${typeof moduleContent === 'string' ? moduleContent : JSON.stringify(moduleContent)}
+
+Generate 5 multiple-choice questions that test key concepts from this module. Questions should range from basic recall to application.
+
+Output ONLY a valid JSON array in this format:
+[
+  {
+    "question": "Question text here?",
+    "options": ["Option A", "Option B", "Option C", "Option D"],
+    "correctAnswerIndex": 0
+  }
+]
+
+Requirements:
+- Create exactly 5 questions
+- Each question has exactly 4 options
+- correctAnswerIndex is 0-3 indicating the correct option
+- Questions should test understanding, not just memorization
+- Output ONLY valid JSON array, no other text`;
+
+      const response = await ai.models.generateContent({
+        model: "gemini-2.5-flash",
+        contents: systemPrompt,
+      });
+
+      const responseText = response.text || "[]";
+      
+      const jsonMatch = responseText.match(/\[[\s\S]*\]/);
+      if (!jsonMatch) {
+        throw new Error("No valid JSON array found in response");
+      }
+
+      const quizData = JSON.parse(jsonMatch[0]);
+      res.json(quizData);
+    } catch (error: any) {
+      console.error("Module quiz generation error:", error);
+      res.status(500).json({ error: error.message || "Failed to generate module quiz" });
+    }
+  });
+
+  // Module progress endpoints
+  app.get("/api/module-progress/:topicId", async (req, res) => {
+    try {
+      const { topicId } = req.params;
+      const userId = req.session.userId;
+      
+      if (!userId) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+      
+      const progress = await storage.getModuleProgressForTopic(userId, topicId);
+      res.json(progress);
+    } catch (error: any) {
+      console.error("Get module progress error:", error);
+      res.status(500).json({ error: error.message || "Failed to get module progress" });
+    }
+  });
+
+  app.post("/api/module-progress", async (req, res) => {
+    try {
+      const { topicId, moduleId, status, quizScore, quizTotal } = req.body;
+      const userId = req.session.userId;
+      
+      if (!userId) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+      
+      if (!topicId || !moduleId) {
+        return res.status(400).json({ error: "topicId and moduleId are required" });
+      }
+      
+      const progress = await storage.createOrUpdateModuleProgress({
+        userId,
+        topicId,
+        moduleId,
+        status: status || "unlocked",
+        quizScore,
+        quizTotal,
+        completedAt: status === "completed" ? new Date() : undefined,
+      });
+      
+      res.json(progress);
+    } catch (error: any) {
+      console.error("Update module progress error:", error);
+      res.status(500).json({ error: error.message || "Failed to update module progress" });
+    }
+  });
+
   app.post("/api/auth/register", async (req, res) => {
     try {
       const parseResult = registerSchema.safeParse(req.body);

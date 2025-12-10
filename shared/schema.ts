@@ -26,6 +26,7 @@ export const topics = pgTable("topics", {
   authorId: varchar("author_id").notNull(),
   readTime: integer("read_time").notNull().default(5),
   content: jsonb("content").notNull().default(sql`'[]'::jsonb`),
+  modules: jsonb("modules").default(sql`'[]'::jsonb`),
   imageUrl: text("image_url"),
   sharedWith: text("shared_with").array().default(sql`ARRAY[]::text[]`),
   sharedWithUsers: text("shared_with_users").array().default(sql`ARRAY[]::text[]`),
@@ -44,6 +45,19 @@ export const userProgress = pgTable("user_progress", {
   timeSpent: integer("time_spent").default(0),
   completedAt: timestamp("completed_at"),
   createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const moduleProgress = pgTable("module_progress", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull(),
+  topicId: varchar("topic_id").notNull(),
+  moduleId: varchar("module_id").notNull(),
+  status: text("status").notNull().default("locked"),
+  quizScore: integer("quiz_score"),
+  quizTotal: integer("quiz_total"),
+  completedAt: timestamp("completed_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
 });
 
 export const userStats = pgTable("user_stats", {
@@ -94,6 +108,12 @@ export const insertUserProgressSchema = createInsertSchema(userProgress).omit({
   createdAt: true,
 });
 
+export const insertModuleProgressSchema = createInsertSchema(moduleProgress).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
 export const insertLeaderboardSchema = createInsertSchema(leaderboard).omit({
   id: true,
   updatedAt: true,
@@ -120,6 +140,9 @@ export type Topic = typeof topics.$inferSelect;
 
 export type InsertUserProgress = z.infer<typeof insertUserProgressSchema>;
 export type UserProgress = typeof userProgress.$inferSelect;
+
+export type InsertModuleProgress = z.infer<typeof insertModuleProgressSchema>;
+export type ModuleProgress = typeof moduleProgress.$inferSelect;
 
 export type InsertLeaderboard = z.infer<typeof insertLeaderboardSchema>;
 export type Leaderboard = typeof leaderboard.$inferSelect;

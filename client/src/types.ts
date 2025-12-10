@@ -17,6 +17,31 @@ export interface ContentBlock {
   order?: number;
 }
 
+export interface ModuleVideo {
+  id: string;
+  title: string;
+  url: string;
+  description?: string;
+}
+
+export interface CourseModule {
+  id: string;
+  title: string;
+  summary: string;
+  learningObjectives: string[];
+  contentBlocks: ContentBlock[];
+  videos: ModuleVideo[];
+  order: number;
+}
+
+export interface ModuleProgress {
+  moduleId: string;
+  status: 'locked' | 'unlocked' | 'in_progress' | 'completed';
+  quizScore?: number;
+  quizTotal?: number;
+  completedAt?: string;
+}
+
 export interface Topic {
   id: string;
   title: string;
@@ -24,6 +49,7 @@ export interface Topic {
   authorId: string;
   readTime: number;
   content: ContentBlock[];
+  modules?: CourseModule[];
   status: TopicStatus;
   imageUrl: string;
   sharedWith: string[];
