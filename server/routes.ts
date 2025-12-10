@@ -18,6 +18,49 @@ const ai = new GoogleGenAI({
   },
 });
 
+// Token pricing for Gemini models (per 1K tokens) - approximations
+const TOKEN_PRICING: Record<string, { input: number; output: number }> = {
+  "gemini-2.5-flash": { input: 0.0001, output: 0.0004 },
+  "gemini-2.5-pro": { input: 0.0025, output: 0.01 },
+};
+
+// Helper function to log AI usage after API calls
+async function logAiUsageHelper(
+  endpoint: string,
+  model: string,
+  response: any,
+  organizationId?: string | null,
+  userId?: string | null,
+  requestPayload?: any
+) {
+  try {
+    // Extract token usage from Gemini response metadata
+    const usageMetadata = response?.usageMetadata || {};
+    const promptTokens = usageMetadata.promptTokenCount || 0;
+    const completionTokens = usageMetadata.candidatesTokenCount || 0;
+    const totalTokens = usageMetadata.totalTokenCount || promptTokens + completionTokens;
+    
+    // Calculate estimated cost
+    const pricing = TOKEN_PRICING[model] || { input: 0.0001, output: 0.0004 };
+    const estimatedCost = (promptTokens / 1000 * pricing.input) + (completionTokens / 1000 * pricing.output);
+    
+    await storage.logAiUsage({
+      organizationId: organizationId || null,
+      userId: userId || null,
+      endpoint,
+      model,
+      promptTokens,
+      completionTokens,
+      totalTokens,
+      estimatedCost: estimatedCost.toFixed(6),
+      requestPayload: requestPayload ? { summary: typeof requestPayload === 'string' ? requestPayload.substring(0, 200) : 'complex-request' } : null,
+      responseStatus: 'success',
+    });
+  } catch (err) {
+    console.warn('Failed to log AI usage:', err);
+  }
+}
+
 interface ContentBlock {
   type: string;
   content: string;
@@ -73,7 +116,7 @@ export async function registerRoutes(
   
   app.post("/api/gemini/generate-quiz", async (req, res) => {
     try {
-      const { content } = req.body;
+      const { content, organizationId, userId } = req.body;
       
       if (!content || !Array.isArray(content)) {
         return res.status(400).json({ error: "Content blocks are required" });
@@ -110,10 +153,14 @@ export async function registerRoutes(
 
       parts.unshift({ text: systemPrompt });
 
+      const model = "gemini-2.5-flash";
       const response = await ai.models.generateContent({
-        model: "gemini-2.5-flash",
+        model,
         contents: [{ role: "user", parts }],
       });
+
+      // Log AI usage
+      await logAiUsageHelper("/api/gemini/generate-quiz", model, response, organizationId, userId, "quiz-generation");
 
       const responseText = response.text || "[]";
       
@@ -132,7 +179,7 @@ export async function registerRoutes(
 
   app.post("/api/gemini/chatbot", async (req, res) => {
     try {
-      const { message, useThinkingMode, systemInstruction } = req.body;
+      const { message, useThinkingMode, systemInstruction, organizationId, userId } = req.body;
       
       if (!message) {
         return res.status(400).json({ error: "Message is required" });
@@ -149,6 +196,9 @@ export async function registerRoutes(
         contents: prompt,
       });
 
+      // Log AI usage
+      await logAiUsageHelper("/api/gemini/chatbot", model, response, organizationId, userId, message);
+
       res.json({ response: response.text || "I'm sorry, I couldn't generate a response." });
     } catch (error: any) {
       console.error("Chatbot error:", error);
@@ -158,7 +208,7 @@ export async function registerRoutes(
 
   app.post("/api/gemini/analyze-video", async (req, res) => {
     try {
-      const { videoTitle, videoUrl } = req.body;
+      const { videoTitle, videoUrl, organizationId, userId } = req.body;
       
       if (!videoTitle && !videoUrl) {
         return res.status(400).json({ error: "Video title or URL is required" });
@@ -177,10 +227,14 @@ Note: This analysis is based on the video title and typical content patterns. Fo
 
 Format your response in a clear, educational manner suitable for a corporate learning management system.`;
 
+      const model = "gemini-2.5-flash";
       const response = await ai.models.generateContent({
-        model: "gemini-2.5-flash",
+        model,
         contents: prompt,
       });
+
+      // Log AI usage
+      await logAiUsageHelper("/api/gemini/analyze-video", model, response, organizationId, userId, videoTitle);
 
       res.json({ analysis: response.text || "Unable to analyze video." });
     } catch (error: any) {
@@ -191,7 +245,7 @@ Format your response in a clear, educational manner suitable for a corporate lea
 
   app.post("/api/gemini/ask-question", async (req, res) => {
     try {
-      const { content, question } = req.body;
+      const { content, question, organizationId, userId } = req.body;
       
       if (!content || !question) {
         return res.status(400).json({ error: "Content and question are required" });
@@ -213,10 +267,14 @@ Provide a helpful, educational answer. If the question cannot be fully answered 
 
       parts.unshift({ text: systemPrompt });
 
+      const model = "gemini-2.5-flash";
       const response = await ai.models.generateContent({
-        model: "gemini-2.5-flash",
+        model,
         contents: [{ role: "user", parts }],
       });
+
+      // Log AI usage
+      await logAiUsageHelper("/api/gemini/ask-question", model, response, organizationId, userId, question);
 
       res.json({ answer: response.text || "I couldn't find an answer to your question." });
     } catch (error: any) {
@@ -228,7 +286,7 @@ Provide a helpful, educational answer. If the question cannot be fully answered 
   // New chat-style endpoint with guardrails and brevity
   app.post("/api/gemini/topic-chat", async (req, res) => {
     try {
-      const { content, topicTitle, question, chatHistory } = req.body;
+      const { content, topicTitle, question, chatHistory, organizationId, userId } = req.body;
       
       if (!content || !question) {
         return res.status(400).json({ error: "Content and question are required" });
@@ -264,10 +322,14 @@ Based on the course content provided, give a brief, helpful response.`;
 
       parts.unshift({ text: systemPrompt });
 
+      const model = "gemini-2.5-flash";
       const response = await ai.models.generateContent({
-        model: "gemini-2.5-flash",
+        model,
         contents: [{ role: "user", parts }],
       });
+
+      // Log AI usage
+      await logAiUsageHelper("/api/gemini/topic-chat", model, response, organizationId, userId, question);
 
       res.json({ answer: response.text || "I'm not sure about that. Could you rephrase?" });
     } catch (error: any) {
@@ -278,7 +340,7 @@ Based on the course content provided, give a brief, helpful response.`;
 
   app.post("/api/gemini/generate-course", async (req, res) => {
     try {
-      const { prompt, resources } = req.body;
+      const { prompt, resources, organizationId, userId } = req.body;
       
       if (!prompt) {
         return res.status(400).json({ error: "Prompt is required" });
@@ -322,10 +384,14 @@ Requirements:
 - Include practical tips and best practices
 - Output ONLY valid JSON, no other text`;
 
+      const model = "gemini-2.5-flash";
       const response = await ai.models.generateContent({
-        model: "gemini-2.5-flash",
+        model,
         contents: genPrompt,
       });
+
+      // Log AI usage
+      await logAiUsageHelper("/api/gemini/generate-course", model, response, organizationId, userId, prompt);
 
       const responseText = response.text || "{}";
       
@@ -345,7 +411,7 @@ Requirements:
   // Generate course modules from content
   app.post("/api/gemini/generate-modules", async (req, res) => {
     try {
-      const { content, title } = req.body;
+      const { content, title, organizationId, userId } = req.body;
       
       if (!content || !Array.isArray(content)) {
         return res.status(400).json({ error: "Content blocks are required" });
@@ -391,10 +457,14 @@ Requirements:
 
       parts.unshift({ text: systemPrompt });
 
+      const model = "gemini-2.5-pro";
       const response = await ai.models.generateContent({
-        model: "gemini-2.5-pro",
+        model,
         contents: [{ role: "user", parts }],
       });
+
+      // Log AI usage
+      await logAiUsageHelper("/api/gemini/generate-modules", model, response, organizationId, userId, title);
 
       const responseText = response.text || "{}";
       
@@ -425,7 +495,7 @@ Requirements:
   // Generate quiz for a specific module
   app.post("/api/gemini/generate-module-quiz", async (req, res) => {
     try {
-      const { moduleContent, moduleTitle } = req.body;
+      const { moduleContent, moduleTitle, organizationId, userId } = req.body;
       
       if (!moduleContent) {
         return res.status(400).json({ error: "Module content is required" });
@@ -456,10 +526,14 @@ Requirements:
 - Questions should test understanding, not just memorization
 - Output ONLY valid JSON array, no other text`;
 
+      const model = "gemini-2.5-flash";
       const response = await ai.models.generateContent({
-        model: "gemini-2.5-flash",
+        model,
         contents: systemPrompt,
       });
+
+      // Log AI usage
+      await logAiUsageHelper("/api/gemini/generate-module-quiz", model, response, organizationId, userId, moduleTitle);
 
       const responseText = response.text || "[]";
       
@@ -1475,6 +1549,81 @@ Requirements:
     } catch (error: any) {
       console.error("Delete license plan error:", error);
       res.status(500).json({ error: error.message || "Failed to delete license plan" });
+    }
+  });
+
+  // ==================== AI USAGE TRACKING API ====================
+
+  // SuperAdmin: Get all AI usage summary
+  app.get("/api/ai-usage/summary", async (req, res) => {
+    try {
+      const userId = req.session.userId;
+      if (!userId) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+      
+      const user = await storage.getUser(userId);
+      if (!user || user.role !== "SuperAdmin") {
+        return res.status(403).json({ error: "Access denied. SuperAdmin required." });
+      }
+      
+      const summary = await storage.getAiUsageSummary();
+      
+      // Calculate platform totals
+      const platformTotals = {
+        totalRequests: summary.reduce((sum, s) => sum + s.totalRequests, 0),
+        totalTokens: summary.reduce((sum, s) => sum + s.totalTokens, 0),
+        totalPromptTokens: summary.reduce((sum, s) => sum + s.totalPromptTokens, 0),
+        totalCompletionTokens: summary.reduce((sum, s) => sum + s.totalCompletionTokens, 0),
+        estimatedCost: summary.reduce((sum, s) => sum + s.estimatedCost, 0),
+      };
+      
+      res.json({ summary, platformTotals });
+    } catch (error: any) {
+      console.error("Get AI usage summary error:", error);
+      res.status(500).json({ error: error.message || "Failed to get AI usage summary" });
+    }
+  });
+
+  // SuperAdmin: Get AI usage for specific organization
+  app.get("/api/ai-usage/organization/:orgId", async (req, res) => {
+    try {
+      const userId = req.session.userId;
+      if (!userId) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+      
+      const user = await storage.getUser(userId);
+      if (!user || user.role !== "SuperAdmin") {
+        return res.status(403).json({ error: "Access denied. SuperAdmin required." });
+      }
+      
+      const orgSummary = await storage.getAiUsageSummaryByOrganization(req.params.orgId);
+      res.json(orgSummary);
+    } catch (error: any) {
+      console.error("Get organization AI usage error:", error);
+      res.status(500).json({ error: error.message || "Failed to get organization AI usage" });
+    }
+  });
+
+  // SuperAdmin: Get all AI usage logs
+  app.get("/api/ai-usage/logs", async (req, res) => {
+    try {
+      const userId = req.session.userId;
+      if (!userId) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+      
+      const user = await storage.getUser(userId);
+      if (!user || user.role !== "SuperAdmin") {
+        return res.status(403).json({ error: "Access denied. SuperAdmin required." });
+      }
+      
+      const logs = await storage.getAllAiUsage();
+      res.json(logs.slice(0, 100)); // Return last 100 logs
+    } catch (error: any) {
+      console.error("Get AI usage logs error:", error);
+      res.status(500).json({ error: error.message || "Failed to get AI usage logs" });
     }
   });
 
