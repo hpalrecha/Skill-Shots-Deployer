@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
-import { Building2, Plus, Users, BookOpen, CreditCard, Settings, Trash2, Edit2, Crown, CheckCircle2 } from "lucide-react";
+import { Building2, Plus, Users, BookOpen, CreditCard, Settings, Trash2, Edit2, Crown, CheckCircle2, UserPlus, Shield, Mail } from "lucide-react";
 
 interface Organization {
   id: string;
@@ -52,6 +52,21 @@ interface LicensePlan {
   isActive: boolean;
 }
 
+interface OrgAdmin {
+  id: string;
+  userId: string;
+  organizationId: string;
+  role: string;
+  joinedAt: string;
+  isActive: boolean;
+  user: {
+    id: string;
+    name: string;
+    email: string;
+    role: string;
+  };
+}
+
 interface SuperAdminDashboardProps {
   currentUser: {
     id: string;
@@ -70,6 +85,16 @@ export default function SuperAdminDashboard({ currentUser }: SuperAdminDashboard
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<LicensePlan | null>(null);
   const [isEditPlanDialogOpen, setIsEditPlanDialogOpen] = useState(false);
+  const [orgAdmins, setOrgAdmins] = useState<Record<string, OrgAdmin[]>>({});
+  const [isAddOrgAdminDialogOpen, setIsAddOrgAdminDialogOpen] = useState(false);
+  const [isEditOrgAdminDialogOpen, setIsEditOrgAdminDialogOpen] = useState(false);
+  const [selectedOrgForAdmin, setSelectedOrgForAdmin] = useState<Organization | null>(null);
+  const [selectedOrgAdmin, setSelectedOrgAdmin] = useState<OrgAdmin | null>(null);
+  const [newOrgAdmin, setNewOrgAdmin] = useState({
+    name: "",
+    email: "",
+    password: "",
+  });
   
   const { toast } = useToast();
 
@@ -110,6 +135,142 @@ export default function SuperAdminDashboard({ currentUser }: SuperAdminDashboard
       });
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const fetchOrgAdmins = async (orgId: string) => {
+    try {
+      const response = await fetch(`/api/organizations/${orgId}/members`, { credentials: 'include' });
+      if (response.ok) {
+        const members = await response.json();
+        const admins = members.filter((m: OrgAdmin) => m.role === 'admin' || m.user?.role === 'OrgAdmin');
+        setOrgAdmins(prev => ({ ...prev, [orgId]: admins }));
+      }
+    } catch (error) {
+      console.error('Error fetching org admins:', error);
+    }
+  };
+
+  const handleAddOrgAdmin = async () => {
+    if (!selectedOrgForAdmin || !newOrgAdmin.name || !newOrgAdmin.email || !newOrgAdmin.password) {
+      toast({
+        title: "Validation Error",
+        description: "All fields are required",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/organizations/${selectedOrgForAdmin.id}/members`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          name: newOrgAdmin.name,
+          email: newOrgAdmin.email,
+          password: newOrgAdmin.password,
+          role: 'OrgAdmin',
+        }),
+      });
+
+      if (response.ok) {
+        toast({
+          title: "Success",
+          description: "Organization admin created successfully",
+        });
+        setIsAddOrgAdminDialogOpen(false);
+        setNewOrgAdmin({ name: "", email: "", password: "" });
+        fetchOrgAdmins(selectedOrgForAdmin.id);
+        fetchData();
+      } else {
+        const error = await response.json();
+        toast({
+          title: "Error",
+          description: error.error || "Failed to create organization admin",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to create organization admin",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleUpdateOrgAdmin = async () => {
+    if (!selectedOrgForAdmin || !selectedOrgAdmin) return;
+
+    try {
+      const response = await fetch(`/api/organizations/${selectedOrgForAdmin.id}/members/${selectedOrgAdmin.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          role: 'admin',
+          isActive: selectedOrgAdmin.isActive,
+        }),
+      });
+
+      if (response.ok) {
+        toast({
+          title: "Success",
+          description: "Organization admin updated successfully",
+        });
+        setIsEditOrgAdminDialogOpen(false);
+        setSelectedOrgAdmin(null);
+        fetchOrgAdmins(selectedOrgForAdmin.id);
+      } else {
+        const error = await response.json();
+        toast({
+          title: "Error",
+          description: error.error || "Failed to update organization admin",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to update organization admin",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleRemoveOrgAdmin = async (orgId: string, membershipId: string) => {
+    if (!window.confirm('Are you sure you want to remove this admin from the organization?')) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/organizations/${orgId}/members/${membershipId}`, {
+        method: 'DELETE',
+        credentials: 'include',
+      });
+
+      if (response.ok) {
+        toast({
+          title: "Success",
+          description: "Organization admin removed successfully",
+        });
+        fetchOrgAdmins(orgId);
+        fetchData();
+      } else {
+        const error = await response.json();
+        toast({
+          title: "Error",
+          description: error.error || "Failed to remove organization admin",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to remove organization admin",
+        variant: "destructive",
+      });
     }
   };
 
@@ -568,6 +729,88 @@ export default function SuperAdminDashboard({ currentUser }: SuperAdminDashboard
                         </p>
                       </div>
                     </div>
+                    
+                    <div className="mt-4 pt-4 border-t">
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center gap-2">
+                          <Shield className="h-4 w-4 text-primary" />
+                          <span className="font-medium text-sm">Organization Admins</span>
+                        </div>
+                        <Button
+                          size="sm"
+                          onClick={() => {
+                            setSelectedOrgForAdmin(org);
+                            setIsAddOrgAdminDialogOpen(true);
+                            if (!orgAdmins[org.id]) {
+                              fetchOrgAdmins(org.id);
+                            }
+                          }}
+                          data-testid={`button-add-orgadmin-${org.id}`}
+                        >
+                          <UserPlus className="h-4 w-4 mr-1" />
+                          Add Admin
+                        </Button>
+                      </div>
+                      
+                      {orgAdmins[org.id]?.length > 0 ? (
+                        <div className="space-y-2">
+                          {orgAdmins[org.id].map((admin) => (
+                            <div 
+                              key={admin.id} 
+                              className="flex items-center justify-between p-3 bg-muted/50 rounded-lg"
+                              data-testid={`orgadmin-row-${admin.id}`}
+                            >
+                              <div className="flex items-center gap-3">
+                                <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
+                                  <Shield className="h-4 w-4 text-primary" />
+                                </div>
+                                <div>
+                                  <p className="font-medium text-sm">{admin.user?.name || 'Unknown'}</p>
+                                  <p className="text-xs text-muted-foreground flex items-center gap-1">
+                                    <Mail className="h-3 w-3" />
+                                    {admin.user?.email || 'No email'}
+                                  </p>
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <Badge variant="default" className="text-xs">OrgAdmin</Badge>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => {
+                                    setSelectedOrgForAdmin(org);
+                                    setSelectedOrgAdmin(admin);
+                                    setIsEditOrgAdminDialogOpen(true);
+                                  }}
+                                  data-testid={`button-edit-orgadmin-${admin.id}`}
+                                >
+                                  <Edit2 className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => handleRemoveOrgAdmin(org.id, admin.id)}
+                                  data-testid={`button-remove-orgadmin-${admin.id}`}
+                                >
+                                  <Trash2 className="h-4 w-4 text-destructive" />
+                                </Button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="text-center py-3 text-sm text-muted-foreground">
+                          <p>No admins yet.</p>
+                          <Button 
+                            variant="ghost" 
+                            size="sm"
+                            onClick={() => fetchOrgAdmins(org.id)}
+                          >
+                            Load admins
+                          </Button>
+                        </div>
+                      )}
+                    </div>
                   </CardContent>
                 </Card>
               ))}
@@ -841,6 +1084,102 @@ export default function SuperAdminDashboard({ currentUser }: SuperAdminDashboard
               })}
               data-testid="button-save-plan"
             >
+              Save Changes
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isAddOrgAdminDialogOpen} onOpenChange={setIsAddOrgAdminDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Add Organization Admin</DialogTitle>
+            <DialogDescription>
+              Create a new admin account for {selectedOrgForAdmin?.name}. This user will have full management access to the organization.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="orgadmin-name">Full Name</Label>
+              <Input
+                id="orgadmin-name"
+                data-testid="input-orgadmin-name"
+                value={newOrgAdmin.name}
+                onChange={(e) => setNewOrgAdmin(prev => ({ ...prev, name: e.target.value }))}
+                placeholder="John Smith"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="orgadmin-email">Email Address</Label>
+              <Input
+                id="orgadmin-email"
+                data-testid="input-orgadmin-email"
+                type="email"
+                value={newOrgAdmin.email}
+                onChange={(e) => setNewOrgAdmin(prev => ({ ...prev, email: e.target.value }))}
+                placeholder="admin@company.com"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="orgadmin-password">Password</Label>
+              <Input
+                id="orgadmin-password"
+                data-testid="input-orgadmin-password"
+                type="password"
+                value={newOrgAdmin.password}
+                onChange={(e) => setNewOrgAdmin(prev => ({ ...prev, password: e.target.value }))}
+                placeholder="Enter a secure password"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => {
+              setIsAddOrgAdminDialogOpen(false);
+              setNewOrgAdmin({ name: "", email: "", password: "" });
+            }}>
+              Cancel
+            </Button>
+            <Button onClick={handleAddOrgAdmin} data-testid="button-submit-orgadmin">
+              <Shield className="h-4 w-4 mr-2" />
+              Create Admin
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isEditOrgAdminDialogOpen} onOpenChange={setIsEditOrgAdminDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Organization Admin</DialogTitle>
+            <DialogDescription>
+              Update admin settings for {selectedOrgAdmin?.user?.name}.
+            </DialogDescription>
+          </DialogHeader>
+          {selectedOrgAdmin && (
+            <div className="space-y-4 py-4">
+              <div className="p-4 bg-muted rounded-lg">
+                <p className="font-medium">{selectedOrgAdmin.user?.name}</p>
+                <p className="text-sm text-muted-foreground">{selectedOrgAdmin.user?.email}</p>
+              </div>
+              <div className="flex items-center justify-between">
+                <Label htmlFor="orgadmin-active">Active Status</Label>
+                <Switch
+                  id="orgadmin-active"
+                  data-testid="switch-orgadmin-active"
+                  checked={selectedOrgAdmin.isActive}
+                  onCheckedChange={(checked) => setSelectedOrgAdmin(prev => prev ? { ...prev, isActive: checked } : null)}
+                />
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => {
+              setIsEditOrgAdminDialogOpen(false);
+              setSelectedOrgAdmin(null);
+            }}>
+              Cancel
+            </Button>
+            <Button onClick={handleUpdateOrgAdmin} data-testid="button-update-orgadmin">
               Save Changes
             </Button>
           </DialogFooter>
