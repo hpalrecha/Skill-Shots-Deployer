@@ -14,6 +14,7 @@ import {
   licensePlans,
   organizationLicenses,
   organizationMemberships,
+  aiUsage,
   type User,
   type InsertUser,
   type Group,
@@ -40,6 +41,8 @@ import {
   type InsertOrganizationLicense,
   type OrganizationMembership,
   type InsertOrganizationMembership,
+  type AiUsage,
+  type InsertAiUsage,
 } from "@shared/schema";
 import bcrypt from "bcrypt";
 
@@ -133,6 +136,13 @@ export interface IStorage {
   // Organization-scoped queries
   getUsersByOrganization(organizationId: string): Promise<User[]>;
   getTopicsByOrganization(organizationId: string): Promise<Topic[]>;
+  
+  // AI Usage tracking
+  logAiUsage(usage: InsertAiUsage): Promise<AiUsage>;
+  getAiUsageByOrganization(organizationId: string): Promise<AiUsage[]>;
+  getAllAiUsage(): Promise<AiUsage[]>;
+  getAiUsageSummary(): Promise<AiUsageSummary[]>;
+  getAiUsageSummaryByOrganization(organizationId: string): Promise<AiUsageOrganizationSummary>;
 }
 
 export interface AnalyticsOverview {
@@ -184,6 +194,30 @@ export interface UserCourseProgress {
   averageQuizScore: number;
   status: string;
   lastActivityDate: Date | null;
+}
+
+export interface AiUsageSummary {
+  organizationId: string | null;
+  organizationName: string;
+  totalRequests: number;
+  totalPromptTokens: number;
+  totalCompletionTokens: number;
+  totalTokens: number;
+  estimatedCost: number;
+  endpointBreakdown: { endpoint: string; requests: number; tokens: number }[];
+}
+
+export interface AiUsageOrganizationSummary {
+  organizationId: string | null;
+  organizationName: string;
+  totalRequests: number;
+  totalPromptTokens: number;
+  totalCompletionTokens: number;
+  totalTokens: number;
+  estimatedCost: number;
+  endpointBreakdown: { endpoint: string; requests: number; tokens: number; cost: number }[];
+  recentUsage: AiUsage[];
+  dailyUsage: { date: string; tokens: number; requests: number; cost: number }[];
 }
 
 export class DatabaseStorage implements IStorage {
@@ -938,6 +972,120 @@ export class DatabaseStorage implements IStorage {
 
   async getTopicsByOrganization(organizationId: string): Promise<Topic[]> {
     return db.select().from(topics).where(eq(topics.organizationId, organizationId));
+  }
+
+  // ==================== AI USAGE TRACKING ====================
+
+  async logAiUsage(usage: InsertAiUsage): Promise<AiUsage> {
+    const result = await db.insert(aiUsage).values(usage).returning();
+    return result[0];
+  }
+
+  async getAiUsageByOrganization(organizationId: string): Promise<AiUsage[]> {
+    return db.select().from(aiUsage)
+      .where(eq(aiUsage.organizationId, organizationId))
+      .orderBy(desc(aiUsage.createdAt));
+  }
+
+  async getAllAiUsage(): Promise<AiUsage[]> {
+    return db.select().from(aiUsage).orderBy(desc(aiUsage.createdAt));
+  }
+
+  async getAiUsageSummary(): Promise<AiUsageSummary[]> {
+    const allUsage = await this.getAllAiUsage();
+    const allOrgs = await this.getAllOrganizations();
+    
+    const orgMap = new Map<string, { name: string }>();
+    allOrgs.forEach(org => orgMap.set(org.id, { name: org.name }));
+    
+    const groupedUsage = new Map<string | null, AiUsage[]>();
+    
+    allUsage.forEach(usage => {
+      const orgId = usage.organizationId;
+      if (!groupedUsage.has(orgId)) {
+        groupedUsage.set(orgId, []);
+      }
+      groupedUsage.get(orgId)!.push(usage);
+    });
+    
+    const summaries: AiUsageSummary[] = [];
+    
+    groupedUsage.forEach((usages, orgId) => {
+      const endpointMap = new Map<string, { requests: number; tokens: number }>();
+      
+      usages.forEach(u => {
+        if (!endpointMap.has(u.endpoint)) {
+          endpointMap.set(u.endpoint, { requests: 0, tokens: 0 });
+        }
+        const ep = endpointMap.get(u.endpoint)!;
+        ep.requests++;
+        ep.tokens += u.totalTokens;
+      });
+      
+      summaries.push({
+        organizationId: orgId,
+        organizationName: orgId ? (orgMap.get(orgId)?.name || 'Unknown') : 'Platform (No Org)',
+        totalRequests: usages.length,
+        totalPromptTokens: usages.reduce((sum, u) => sum + u.promptTokens, 0),
+        totalCompletionTokens: usages.reduce((sum, u) => sum + u.completionTokens, 0),
+        totalTokens: usages.reduce((sum, u) => sum + u.totalTokens, 0),
+        estimatedCost: usages.reduce((sum, u) => sum + parseFloat(u.estimatedCost || '0'), 0),
+        endpointBreakdown: Array.from(endpointMap.entries()).map(([endpoint, data]) => ({
+          endpoint,
+          requests: data.requests,
+          tokens: data.tokens,
+        })),
+      });
+    });
+    
+    return summaries.sort((a, b) => b.totalTokens - a.totalTokens);
+  }
+
+  async getAiUsageSummaryByOrganization(organizationId: string): Promise<AiUsageOrganizationSummary> {
+    const usages = await this.getAiUsageByOrganization(organizationId);
+    const org = await this.getOrganization(organizationId);
+    
+    const endpointMap = new Map<string, { requests: number; tokens: number; cost: number }>();
+    const dailyMap = new Map<string, { tokens: number; requests: number; cost: number }>();
+    
+    usages.forEach(u => {
+      if (!endpointMap.has(u.endpoint)) {
+        endpointMap.set(u.endpoint, { requests: 0, tokens: 0, cost: 0 });
+      }
+      const ep = endpointMap.get(u.endpoint)!;
+      ep.requests++;
+      ep.tokens += u.totalTokens;
+      ep.cost += parseFloat(u.estimatedCost || '0');
+      
+      const date = u.createdAt ? new Date(u.createdAt).toISOString().split('T')[0] : 'unknown';
+      if (!dailyMap.has(date)) {
+        dailyMap.set(date, { tokens: 0, requests: 0, cost: 0 });
+      }
+      const day = dailyMap.get(date)!;
+      day.tokens += u.totalTokens;
+      day.requests++;
+      day.cost += parseFloat(u.estimatedCost || '0');
+    });
+    
+    return {
+      organizationId,
+      organizationName: org?.name || 'Unknown',
+      totalRequests: usages.length,
+      totalPromptTokens: usages.reduce((sum, u) => sum + u.promptTokens, 0),
+      totalCompletionTokens: usages.reduce((sum, u) => sum + u.completionTokens, 0),
+      totalTokens: usages.reduce((sum, u) => sum + u.totalTokens, 0),
+      estimatedCost: usages.reduce((sum, u) => sum + parseFloat(u.estimatedCost || '0'), 0),
+      endpointBreakdown: Array.from(endpointMap.entries()).map(([endpoint, data]) => ({
+        endpoint,
+        requests: data.requests,
+        tokens: data.tokens,
+        cost: data.cost,
+      })),
+      recentUsage: usages.slice(0, 20),
+      dailyUsage: Array.from(dailyMap.entries())
+        .map(([date, data]) => ({ date, ...data }))
+        .sort((a, b) => a.date.localeCompare(b.date)),
+    };
   }
 }
 

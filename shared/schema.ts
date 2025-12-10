@@ -162,6 +162,22 @@ export const courseCompletions = pgTable("course_completions", {
   totalModules: integer("total_modules"),
 });
 
+// AI Usage tracking for billing accountability
+export const aiUsage = pgTable("ai_usage", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  organizationId: varchar("organization_id"),
+  userId: varchar("user_id"),
+  endpoint: text("endpoint").notNull(),
+  model: text("model").notNull(),
+  promptTokens: integer("prompt_tokens").notNull().default(0),
+  completionTokens: integer("completion_tokens").notNull().default(0),
+  totalTokens: integer("total_tokens").notNull().default(0),
+  estimatedCost: decimal("estimated_cost", { precision: 10, scale: 6 }).default("0"),
+  requestPayload: jsonb("request_payload"),
+  responseStatus: text("response_status").default("success"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 // ==================== INSERT SCHEMAS FOR MULTI-TENANT TABLES ====================
 
 export const insertOrganizationSchema = createInsertSchema(organizations).omit({
@@ -235,6 +251,11 @@ export const insertCourseCompletionSchema = createInsertSchema(courseCompletions
   completedAt: true,
 });
 
+export const insertAiUsageSchema = createInsertSchema(aiUsage).omit({
+  id: true,
+  createdAt: true,
+});
+
 // ==================== TYPES FOR MULTI-TENANT TABLES ====================
 
 export type InsertOrganization = z.infer<typeof insertOrganizationSchema>;
@@ -277,6 +298,9 @@ export type Category = typeof categories.$inferSelect;
 
 export type InsertCourseCompletion = z.infer<typeof insertCourseCompletionSchema>;
 export type CourseCompletion = typeof courseCompletions.$inferSelect;
+
+export type InsertAiUsage = z.infer<typeof insertAiUsageSchema>;
+export type AiUsage = typeof aiUsage.$inferSelect;
 
 export const loginSchema = z.object({
   email: z.string().email(),
