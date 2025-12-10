@@ -1169,5 +1169,499 @@ Requirements:
     }
   });
 
+  // ==================== ORGANIZATION MANAGEMENT API ====================
+
+  // SuperAdmin: Get all organizations
+  app.get("/api/organizations", async (req, res) => {
+    try {
+      const userId = req.session.userId;
+      if (!userId) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+      
+      const user = await storage.getUser(userId);
+      if (!user || user.role !== "SuperAdmin") {
+        return res.status(403).json({ error: "Access denied. SuperAdmin required." });
+      }
+      
+      const organizations = await storage.getAllOrganizations();
+      
+      // Enrich with license info
+      const orgsWithLicense = await Promise.all(
+        organizations.map(async (org) => {
+          const license = await storage.getOrganizationLicense(org.id);
+          const plan = license ? await storage.getLicensePlan(license.planId) : null;
+          const members = await storage.getOrganizationMembers(org.id);
+          return {
+            ...org,
+            license: license ? {
+              ...license,
+              planName: plan?.name || 'Unknown',
+            } : null,
+            memberCount: members.length,
+          };
+        })
+      );
+      
+      res.json(orgsWithLicense);
+    } catch (error: any) {
+      console.error("Get organizations error:", error);
+      res.status(500).json({ error: error.message || "Failed to get organizations" });
+    }
+  });
+
+  // SuperAdmin: Get single organization
+  app.get("/api/organizations/:id", async (req, res) => {
+    try {
+      const userId = req.session.userId;
+      if (!userId) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+      
+      const user = await storage.getUser(userId);
+      if (!user || (user.role !== "SuperAdmin" && user.organizationId !== req.params.id)) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+      
+      const org = await storage.getOrganization(req.params.id);
+      if (!org) {
+        return res.status(404).json({ error: "Organization not found" });
+      }
+      
+      const license = await storage.getOrganizationLicense(org.id);
+      const plan = license ? await storage.getLicensePlan(license.planId) : null;
+      const members = await storage.getOrganizationMembers(org.id);
+      
+      res.json({
+        ...org,
+        license: license ? {
+          ...license,
+          planName: plan?.name || 'Unknown',
+          limits: plan,
+        } : null,
+        memberCount: members.length,
+      });
+    } catch (error: any) {
+      console.error("Get organization error:", error);
+      res.status(500).json({ error: error.message || "Failed to get organization" });
+    }
+  });
+
+  // SuperAdmin: Create organization
+  app.post("/api/organizations", async (req, res) => {
+    try {
+      const userId = req.session.userId;
+      if (!userId) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+      
+      const user = await storage.getUser(userId);
+      if (!user || user.role !== "SuperAdmin") {
+        return res.status(403).json({ error: "Access denied. SuperAdmin required." });
+      }
+      
+      const { name, slug, description, logoUrl, planId } = req.body;
+      
+      if (!name || !slug) {
+        return res.status(400).json({ error: "Name and slug are required" });
+      }
+      
+      // Check if slug is unique
+      const existingOrg = await storage.getOrganizationBySlug(slug);
+      if (existingOrg) {
+        return res.status(409).json({ error: "Organization with this slug already exists" });
+      }
+      
+      // Create organization
+      const org = await storage.createOrganization({
+        name,
+        slug,
+        description,
+        logoUrl,
+        isActive: true,
+        settings: {},
+      });
+      
+      // Create license if planId provided
+      if (planId) {
+        await storage.createOrganizationLicense({
+          organizationId: org.id,
+          planId,
+          status: "active",
+          currentUsers: 0,
+          currentCreators: 0,
+          currentCourses: 0,
+          currentStorageMb: 0,
+        });
+      }
+      
+      res.status(201).json(org);
+    } catch (error: any) {
+      console.error("Create organization error:", error);
+      res.status(500).json({ error: error.message || "Failed to create organization" });
+    }
+  });
+
+  // SuperAdmin: Update organization
+  app.patch("/api/organizations/:id", async (req, res) => {
+    try {
+      const userId = req.session.userId;
+      if (!userId) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+      
+      const user = await storage.getUser(userId);
+      if (!user || user.role !== "SuperAdmin") {
+        return res.status(403).json({ error: "Access denied. SuperAdmin required." });
+      }
+      
+      const { name, description, logoUrl, isActive } = req.body;
+      
+      const org = await storage.updateOrganization(req.params.id, {
+        name,
+        description,
+        logoUrl,
+        isActive,
+      });
+      
+      if (!org) {
+        return res.status(404).json({ error: "Organization not found" });
+      }
+      
+      res.json(org);
+    } catch (error: any) {
+      console.error("Update organization error:", error);
+      res.status(500).json({ error: error.message || "Failed to update organization" });
+    }
+  });
+
+  // SuperAdmin: Delete organization
+  app.delete("/api/organizations/:id", async (req, res) => {
+    try {
+      const userId = req.session.userId;
+      if (!userId) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+      
+      const user = await storage.getUser(userId);
+      if (!user || user.role !== "SuperAdmin") {
+        return res.status(403).json({ error: "Access denied. SuperAdmin required." });
+      }
+      
+      const deleted = await storage.deleteOrganization(req.params.id);
+      if (!deleted) {
+        return res.status(404).json({ error: "Organization not found" });
+      }
+      
+      res.json({ message: "Organization deleted" });
+    } catch (error: any) {
+      console.error("Delete organization error:", error);
+      res.status(500).json({ error: error.message || "Failed to delete organization" });
+    }
+  });
+
+  // ==================== LICENSE PLAN API ====================
+
+  // Get all license plans
+  app.get("/api/license-plans", async (req, res) => {
+    try {
+      const plans = await storage.getAllLicensePlans();
+      res.json(plans);
+    } catch (error: any) {
+      console.error("Get license plans error:", error);
+      res.status(500).json({ error: error.message || "Failed to get license plans" });
+    }
+  });
+
+  // SuperAdmin: Create license plan
+  app.post("/api/license-plans", async (req, res) => {
+    try {
+      const userId = req.session.userId;
+      if (!userId) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+      
+      const user = await storage.getUser(userId);
+      if (!user || user.role !== "SuperAdmin") {
+        return res.status(403).json({ error: "Access denied. SuperAdmin required." });
+      }
+      
+      const plan = await storage.createLicensePlan(req.body);
+      res.status(201).json(plan);
+    } catch (error: any) {
+      console.error("Create license plan error:", error);
+      res.status(500).json({ error: error.message || "Failed to create license plan" });
+    }
+  });
+
+  // ==================== ORGANIZATION MEMBERSHIP API ====================
+
+  // OrgAdmin: Get organization members
+  app.get("/api/organizations/:orgId/members", async (req, res) => {
+    try {
+      const userId = req.session.userId;
+      if (!userId) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+      
+      const user = await storage.getUser(userId);
+      const membership = await storage.getOrganizationMembership(userId, req.params.orgId);
+      
+      // Allow SuperAdmin or OrgAdmin of this org
+      if (!user || (user.role !== "SuperAdmin" && (!membership || membership.role !== "OrgAdmin"))) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+      
+      const memberships = await storage.getOrganizationMembers(req.params.orgId);
+      
+      // Enrich with user details
+      const membersWithDetails = await Promise.all(
+        memberships.map(async (m) => {
+          const memberUser = await storage.getUser(m.userId);
+          return {
+            ...m,
+            userName: memberUser?.name || 'Unknown',
+            userEmail: memberUser?.email || '',
+          };
+        })
+      );
+      
+      res.json(membersWithDetails);
+    } catch (error: any) {
+      console.error("Get organization members error:", error);
+      res.status(500).json({ error: error.message || "Failed to get organization members" });
+    }
+  });
+
+  // OrgAdmin: Add member to organization
+  app.post("/api/organizations/:orgId/members", async (req, res) => {
+    try {
+      const userId = req.session.userId;
+      if (!userId) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+      
+      const user = await storage.getUser(userId);
+      const membership = await storage.getOrganizationMembership(userId, req.params.orgId);
+      
+      if (!user || (user.role !== "SuperAdmin" && (!membership || membership.role !== "OrgAdmin"))) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+      
+      // Check license limits
+      const { withinLimits, limits, usage } = await storage.checkLicenseLimits(req.params.orgId);
+      if (!withinLimits) {
+        return res.status(403).json({ 
+          error: "Organization has reached its license limits",
+          limits,
+          usage,
+        });
+      }
+      
+      const { memberUserId, role } = req.body;
+      
+      if (!memberUserId) {
+        return res.status(400).json({ error: "memberUserId is required" });
+      }
+      
+      // Check if already a member
+      const existingMembership = await storage.getOrganizationMembership(memberUserId, req.params.orgId);
+      if (existingMembership && existingMembership.isActive) {
+        return res.status(409).json({ error: "User is already a member of this organization" });
+      }
+      
+      const newMembership = await storage.createOrganizationMembership({
+        userId: memberUserId,
+        organizationId: req.params.orgId,
+        role: role || "Learner",
+        isActive: true,
+      });
+      
+      // Also update the user's organizationId
+      await storage.updateUser(memberUserId, { organizationId: req.params.orgId });
+      
+      res.status(201).json(newMembership);
+    } catch (error: any) {
+      console.error("Add organization member error:", error);
+      res.status(500).json({ error: error.message || "Failed to add organization member" });
+    }
+  });
+
+  // OrgAdmin: Update member role
+  app.patch("/api/organizations/:orgId/members/:memberId", async (req, res) => {
+    try {
+      const userId = req.session.userId;
+      if (!userId) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+      
+      const user = await storage.getUser(userId);
+      const membership = await storage.getOrganizationMembership(userId, req.params.orgId);
+      
+      if (!user || (user.role !== "SuperAdmin" && (!membership || membership.role !== "OrgAdmin"))) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+      
+      const { role } = req.body;
+      
+      const updated = await storage.updateOrganizationMembership(req.params.memberId, { role });
+      if (!updated) {
+        return res.status(404).json({ error: "Membership not found" });
+      }
+      
+      res.json(updated);
+    } catch (error: any) {
+      console.error("Update organization member error:", error);
+      res.status(500).json({ error: error.message || "Failed to update organization member" });
+    }
+  });
+
+  // OrgAdmin: Remove member from organization
+  app.delete("/api/organizations/:orgId/members/:memberUserId", async (req, res) => {
+    try {
+      const userId = req.session.userId;
+      if (!userId) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+      
+      const user = await storage.getUser(userId);
+      const membership = await storage.getOrganizationMembership(userId, req.params.orgId);
+      
+      if (!user || (user.role !== "SuperAdmin" && (!membership || membership.role !== "OrgAdmin"))) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+      
+      const removed = await storage.removeOrganizationMembership(req.params.memberUserId, req.params.orgId);
+      if (!removed) {
+        return res.status(404).json({ error: "Membership not found" });
+      }
+      
+      res.json({ message: "Member removed from organization" });
+    } catch (error: any) {
+      console.error("Remove organization member error:", error);
+      res.status(500).json({ error: error.message || "Failed to remove organization member" });
+    }
+  });
+
+  // ==================== ORGANIZATION-SCOPED QUERIES ====================
+
+  // Get topics for an organization
+  app.get("/api/organizations/:orgId/topics", async (req, res) => {
+    try {
+      const userId = req.session.userId;
+      if (!userId) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+      
+      const user = await storage.getUser(userId);
+      const membership = await storage.getOrganizationMembership(userId, req.params.orgId);
+      
+      if (!user || (user.role !== "SuperAdmin" && !membership)) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+      
+      const topics = await storage.getTopicsByOrganization(req.params.orgId);
+      res.json(topics);
+    } catch (error: any) {
+      console.error("Get organization topics error:", error);
+      res.status(500).json({ error: error.message || "Failed to get organization topics" });
+    }
+  });
+
+  // Get users for an organization
+  app.get("/api/organizations/:orgId/users", async (req, res) => {
+    try {
+      const userId = req.session.userId;
+      if (!userId) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+      
+      const user = await storage.getUser(userId);
+      const membership = await storage.getOrganizationMembership(userId, req.params.orgId);
+      
+      if (!user || (user.role !== "SuperAdmin" && (!membership || membership.role !== "OrgAdmin"))) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+      
+      const users = await storage.getUsersByOrganization(req.params.orgId);
+      
+      // Remove passwords from response
+      const safeUsers = users.map(u => ({
+        id: u.id,
+        name: u.name,
+        email: u.email,
+        role: u.role,
+        organizationId: u.organizationId,
+        groupIds: u.groupIds,
+        createdAt: u.createdAt,
+      }));
+      
+      res.json(safeUsers);
+    } catch (error: any) {
+      console.error("Get organization users error:", error);
+      res.status(500).json({ error: error.message || "Failed to get organization users" });
+    }
+  });
+
+  // Get current user's organization context
+  app.get("/api/my-organization", async (req, res) => {
+    try {
+      const userId = req.session.userId;
+      if (!userId) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+      
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+      
+      if (user.role === "SuperAdmin") {
+        // SuperAdmin can see all organizations
+        const orgs = await storage.getAllOrganizations();
+        return res.json({
+          isSuperAdmin: true,
+          organizations: orgs,
+          currentOrganization: null,
+        });
+      }
+      
+      // Get user's organizations
+      const memberships = await storage.getUserOrganizations(userId);
+      
+      if (memberships.length === 0) {
+        return res.json({
+          isSuperAdmin: false,
+          organizations: [],
+          currentOrganization: null,
+        });
+      }
+      
+      // Get org details for each membership
+      const orgsWithDetails = await Promise.all(
+        memberships.map(async (m) => {
+          const org = await storage.getOrganization(m.organizationId);
+          return {
+            ...org,
+            memberRole: m.role,
+          };
+        })
+      );
+      
+      // Use primary organization (first active membership)
+      const primaryOrg = orgsWithDetails[0];
+      
+      res.json({
+        isSuperAdmin: false,
+        organizations: orgsWithDetails,
+        currentOrganization: primaryOrg,
+        memberRole: memberships[0]?.role,
+      });
+    } catch (error: any) {
+      console.error("Get my organization error:", error);
+      res.status(500).json({ error: error.message || "Failed to get organization context" });
+    }
+  });
+
   return httpServer;
 }
