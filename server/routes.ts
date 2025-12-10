@@ -225,6 +225,57 @@ Provide a helpful, educational answer. If the question cannot be fully answered 
     }
   });
 
+  // New chat-style endpoint with guardrails and brevity
+  app.post("/api/gemini/topic-chat", async (req, res) => {
+    try {
+      const { content, topicTitle, question, chatHistory } = req.body;
+      
+      if (!content || !question) {
+        return res.status(400).json({ error: "Content and question are required" });
+      }
+
+      const parts = buildMultimodalParts(content);
+      
+      if (parts.length === 0) {
+        return res.status(400).json({ error: "No valid content found" });
+      }
+
+      // Build chat history context
+      let historyContext = "";
+      if (chatHistory && chatHistory.length > 0) {
+        historyContext = "\n\nPrevious conversation:\n" + 
+          chatHistory.map((m: any) => `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.content}`).join('\n');
+      }
+
+      const systemPrompt = `You are a focused AI tutor helping with the course "${topicTitle || 'this topic'}".
+
+STRICT RULES:
+1. ONLY answer questions directly related to this course content. If asked about anything unrelated (other topics, personal opinions, general knowledge not in the content), politely say: "I can only help with questions about this course. What would you like to know about the content?"
+2. Keep answers SHORT and conversational - 1-3 sentences max by default.
+3. Use simple, clear language. No bullet points or long paragraphs unless the user specifically asks for "more details" or "explain in depth".
+4. If unsure, say so briefly rather than making things up.
+5. Be friendly but concise - this is a chat, not an essay.
+
+${historyContext}
+
+USER'S QUESTION: ${question}
+
+Based on the course content provided, give a brief, helpful response.`;
+
+      parts.unshift({ text: systemPrompt });
+
+      const response = await ai.models.generateContent({
+        model: "gemini-2.5-flash",
+        contents: [{ role: "user", parts }],
+      });
+
+      res.json({ answer: response.text || "I'm not sure about that. Could you rephrase?" });
+    } catch (error: any) {
+      console.error("Topic chat error:", error);
+      res.status(500).json({ error: error.message || "Failed to respond" });
+    }
+  });
+
   app.post("/api/gemini/generate-course", async (req, res) => {
     try {
       const { prompt, resources } = req.body;

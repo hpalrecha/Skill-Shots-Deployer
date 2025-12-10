@@ -1,12 +1,12 @@
 import { useState, useMemo } from 'react';
 import { Topic, QuizData, ContentType, ContentBlock, Group } from '../types';
-import { generateQuiz, analyzeVideoContent, askQuestionAboutTopic } from '../services/geminiService';
+import { generateQuiz, analyzeVideoContent } from '../services/geminiService';
 import Quiz from './Quiz';
 import ModuleLearnerView from './ModuleLearnerView';
-import { SparklesIcon, LoaderIcon, FileTextIcon, VideoIcon, UsersIcon, MessageSquareIcon, SendIcon, ClipboardListIcon, CheckIcon, ImageIcon } from './icons';
+import TopicChat from './TopicChat';
+import { SparklesIcon, LoaderIcon, FileTextIcon, VideoIcon, UsersIcon, ClipboardListIcon, CheckIcon, ImageIcon } from './icons';
 import { Eye, Download, ExternalLink, BookOpen } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -25,10 +25,6 @@ export default function TopicView({ topic, onMarkComplete, groups }: TopicViewPr
 
   const [analysis, setAnalysis] = useState<Record<string, string>>({});
   const [isAnalyzing, setIsAnalyzing] = useState<Record<string, boolean>>({});
-
-  const [askQuestion, setAskQuestion] = useState('');
-  const [askAnswer, setAskAnswer] = useState<string | null>(null);
-  const [isAsking, setIsAsking] = useState(false);
 
   const sharedWithGroupNames = useMemo(() => {
     return topic.sharedWith
@@ -77,24 +73,6 @@ export default function TopicView({ topic, onMarkComplete, groups }: TopicViewPr
       setAnalysis(prev => ({ ...prev, [videoId]: 'Error: Could not analyze the video.' }));
     } finally {
       setIsAnalyzing(prev => ({ ...prev, [videoId]: false }));
-    }
-  };
-
-  const handleAskQuestion = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!askQuestion.trim()) return;
-
-    setIsAsking(true);
-    setAskAnswer(null);
-
-    try {
-      const answer = await askQuestionAboutTopic(topic.content, askQuestion);
-      setAskAnswer(answer);
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : "I'm having trouble connecting right now. Please try again.";
-      setAskAnswer(errorMessage);
-    } finally {
-      setIsAsking(false);
     }
   };
 
@@ -305,41 +283,9 @@ export default function TopicView({ topic, onMarkComplete, groups }: TopicViewPr
         )}
       </div>
 
-      <Card className="max-w-4xl mx-auto mt-12 mb-8 p-6 bg-primary/5 border-primary/10">
-        <h3 className="text-lg font-bold text-foreground flex items-center gap-2 mb-3">
-          <MessageSquareIcon className="h-5 w-5 text-primary" />
-          Have a question about this topic?
-        </h3>
-        <p className="text-sm text-muted-foreground mb-4">Ask our AI tutor anything related to the content above (including PDFs and Images).</p>
-
-        <form onSubmit={handleAskQuestion} className="flex gap-2">
-          <Input
-            type="text"
-            value={askQuestion}
-            onChange={(e) => setAskQuestion(e.target.value)}
-            placeholder="E.g., What is the main safety protocol mentioned?"
-            disabled={isAsking}
-            data-testid="input-ask-question"
-          />
-          <Button
-            type="submit"
-            disabled={isAsking || !askQuestion.trim()}
-            data-testid="button-ask-question"
-          >
-            {isAsking ? <LoaderIcon className="animate-spin h-5 w-5" /> : <SendIcon className="h-5 w-5" />}
-          </Button>
-        </form>
-
-        {askAnswer && (
-          <Card className="mt-4 p-4 bg-card">
-            <h5 className="font-bold text-foreground flex items-center gap-2 mb-2">
-              <SparklesIcon className="h-4 w-4 text-primary"/>
-              AI Answer
-            </h5>
-            <p className="text-sm text-muted-foreground whitespace-pre-wrap" data-testid="text-ai-answer">{askAnswer}</p>
-          </Card>
-        )}
-      </Card>
+      <div className="max-w-4xl mx-auto mt-12 mb-8">
+        <TopicChat topicTitle={topic.title} contentBlocks={topic.content} />
+      </div>
 
       <div className="max-w-4xl mx-auto mt-12 pt-8 border-t border-border">
         <div className="flex items-center justify-between gap-4 mb-6 flex-wrap">
