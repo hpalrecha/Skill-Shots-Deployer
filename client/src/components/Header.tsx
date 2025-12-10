@@ -2,7 +2,7 @@ import { useLocation } from 'wouter';
 import { User, UserRole } from '../types';
 import { SkillShotsLogo, UserCircleIcon, LogOutIcon, EditIcon, ClipboardListIcon, BrainIcon } from './icons';
 import { Button } from '@/components/ui/button';
-import { BookOpen, Crown } from 'lucide-react';
+import { BookOpen, Crown, Building2 } from 'lucide-react';
 
 interface HeaderProps {
   user: User;
@@ -96,7 +96,18 @@ export default function Header({ user, onLogout, currentRoute }: HeaderProps) {
               {isOnSuperAdminRoute ? "Back to Home" : "Platform Admin"}
             </Button>
           )}
-          {canAccessAdmin && !isSuperAdmin && (
+          {isOrgAdmin && (
+            <Button
+              variant={currentRoute === '/orgadmin' ? "default" : "secondary"}
+              onClick={() => setLocation(currentRoute === '/orgadmin' ? '/' : '/orgadmin')}
+              className="hidden sm:flex items-center"
+              data-testid="button-orgadmin-portal"
+            >
+              <Building2 className="h-4 w-4 mr-1.5" />
+              {currentRoute === '/orgadmin' ? "Back to Home" : "Org Admin"}
+            </Button>
+          )}
+          {canAccessAdmin && !isSuperAdmin && !isOrgAdmin && (
             <Button
               variant={isOnManagementRoute ? "default" : "secondary"}
               onClick={handleAdminClick}

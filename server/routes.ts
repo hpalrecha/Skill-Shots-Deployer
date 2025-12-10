@@ -715,7 +715,25 @@ Requirements:
 
   app.get("/api/users", async (req, res) => {
     try {
-      const users = await storage.getAllUsers();
+      const sessionUserId = req.session.userId;
+      let users;
+      
+      if (sessionUserId) {
+        const currentUser = await storage.getUser(sessionUserId);
+        // If user belongs to an organization, filter users by that org
+        if (currentUser && currentUser.organizationId) {
+          users = await storage.getUsersByOrganization(currentUser.organizationId);
+        } else if (currentUser?.role === 'SuperAdmin') {
+          // SuperAdmins see all users
+          users = await storage.getAllUsers();
+        } else {
+          // Users without org see all users (legacy behavior)
+          users = await storage.getAllUsers();
+        }
+      } else {
+        users = await storage.getAllUsers();
+      }
+      
       res.json(users.map(u => ({
         id: u.id,
         name: u.name,
@@ -937,7 +955,25 @@ Requirements:
 
   app.get("/api/topics", async (req, res) => {
     try {
-      const topics = await storage.getAllTopics();
+      const userId = req.session.userId;
+      let topics;
+      
+      if (userId) {
+        const user = await storage.getUser(userId);
+        // If user belongs to an organization, filter topics by that org
+        if (user && user.organizationId) {
+          topics = await storage.getTopicsByOrganization(user.organizationId);
+        } else if (user?.role === 'SuperAdmin') {
+          // SuperAdmins see all topics
+          topics = await storage.getAllTopics();
+        } else {
+          // Users without org see all topics (legacy behavior)
+          topics = await storage.getAllTopics();
+        }
+      } else {
+        topics = await storage.getAllTopics();
+      }
+      
       res.json(topics);
     } catch (error: any) {
       console.error("Get topics error:", error);
@@ -1420,8 +1456,12 @@ Requirements:
           const memberUser = await storage.getUser(m.userId);
           return {
             ...m,
-            userName: memberUser?.name || 'Unknown',
-            userEmail: memberUser?.email || '',
+            user: {
+              id: memberUser?.id || '',
+              name: memberUser?.name || 'Unknown',
+              email: memberUser?.email || '',
+              role: memberUser?.role || 'Learner',
+            },
           };
         })
       );
@@ -1433,7 +1473,7 @@ Requirements:
     }
   });
 
-  // OrgAdmin: Add member to organization
+  // OrgAdmin: Add member to organization (can also create new user)
   app.post("/api/organizations/:orgId/members", async (req, res) => {
     try {
       const userId = req.session.userId;
@@ -1458,27 +1498,49 @@ Requirements:
         });
       }
       
-      const { memberUserId, role } = req.body;
+      const { memberUserId, role, name, email, password } = req.body;
       
-      if (!memberUserId) {
-        return res.status(400).json({ error: "memberUserId is required" });
+      let targetUserId = memberUserId;
+      
+      // If creating a new user (name, email, password provided)
+      if (name && email && password) {
+        // Check if email already exists
+        const existingUser = await storage.getUserByEmail(email);
+        if (existingUser) {
+          return res.status(409).json({ error: "A user with this email already exists" });
+        }
+        
+        // Create new user
+        const newUser = await storage.createUser({
+          name,
+          email,
+          password,
+          role: role || "Learner",
+          organizationId: req.params.orgId,
+          groupIds: [],
+        });
+        targetUserId = newUser.id;
+      }
+      
+      if (!targetUserId) {
+        return res.status(400).json({ error: "Either memberUserId or name/email/password is required" });
       }
       
       // Check if already a member
-      const existingMembership = await storage.getOrganizationMembership(memberUserId, req.params.orgId);
+      const existingMembership = await storage.getOrganizationMembership(targetUserId, req.params.orgId);
       if (existingMembership && existingMembership.isActive) {
         return res.status(409).json({ error: "User is already a member of this organization" });
       }
       
       const newMembership = await storage.createOrganizationMembership({
-        userId: memberUserId,
+        userId: targetUserId,
         organizationId: req.params.orgId,
         role: role || "Learner",
         isActive: true,
       });
       
       // Also update the user's organizationId
-      await storage.updateUser(memberUserId, { organizationId: req.params.orgId });
+      await storage.updateUser(targetUserId, { organizationId: req.params.orgId });
       
       res.status(201).json(newMembership);
     } catch (error: any) {

@@ -15,6 +15,7 @@ import TopicSwiperView from "./components/TopicSwiperView";
 import Chatbot from "./components/Chatbot";
 import CreatorDashboard from "./components/CreatorDashboard";
 import SuperAdminDashboard from "./components/SuperAdminDashboard";
+import OrgAdminDashboard from "./components/OrgAdminDashboard";
 import { MessageSquareIcon } from "./components/icons";
 import { Button } from "@/components/ui/button";
 
@@ -434,6 +435,7 @@ function App() {
 
   // Role-based route access
   const canAccessSuperAdmin = currentUser.role === 'SuperAdmin';
+  const canAccessOrgAdmin = currentUser.role === 'OrgAdmin';
   const canAccessAdmin = currentUser.role === 'Admin' || currentUser.role === 'OrgAdmin';
   const canAccessCreator = currentUser.role === 'Creator' || currentUser.role === 'Admin' || currentUser.role === 'OrgAdmin';
 
@@ -484,6 +486,17 @@ function App() {
               {canAccessSuperAdmin ? (
                 <main className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8 py-8">
                   <SuperAdminDashboard currentUser={currentUser} />
+                </main>
+              ) : (
+                <Redirect to="/" />
+              )}
+            </Route>
+
+            {/* Organization Admin Dashboard - OrgAdmin only */}
+            <Route path="/orgadmin">
+              {canAccessOrgAdmin ? (
+                <main className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8 py-8">
+                  <OrgAdminDashboard currentUser={currentUser} />
                 </main>
               ) : (
                 <Redirect to="/" />
