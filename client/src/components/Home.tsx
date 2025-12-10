@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { BookOpen, ClipboardList, Trophy, TrendingUp, ChevronRight, Target, Award } from 'lucide-react';
 import Leaderboard from './Leaderboard';
+import CompletedCoursesBadges from './CompletedCoursesBadges';
 
 interface HomeProps {
   topics: Topic[];
@@ -169,6 +170,8 @@ export default function Home({ topics, currentUser, leaderboard }: HomeProps) {
               </div>
             </div>
           )}
+
+          <CompletedCoursesBadges />
         </div>
 
         <div className="space-y-4">
