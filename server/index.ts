@@ -4,6 +4,7 @@ import { serveStatic } from "./static";
 import { createServer } from "http";
 import session from "express-session";
 import connectPgSimple from "connect-pg-simple";
+import { storage } from "./storage";
 
 const app = express();
 const httpServer = createServer(app);
@@ -81,8 +82,136 @@ app.use((req, res, next) => {
   next();
 });
 
+async function seedDemoData() {
+  try {
+    // Check if SuperAdmin exists
+    const superAdmin = await storage.getUserByEmail("superadmin@skillshots.com");
+    if (!superAdmin) {
+      await storage.createUser({
+        name: "Super Admin",
+        email: "superadmin@skillshots.com",
+        password: "superadmin123",
+        role: "SuperAdmin",
+        groupIds: [],
+      });
+      log("Created SuperAdmin account");
+    }
+
+    // Check if license plans exist
+    const plans = await storage.getAllLicensePlans();
+    if (plans.length === 0) {
+      await storage.createLicensePlan({
+        name: "Starter",
+        description: "Perfect for small teams getting started",
+        priceMonthly: "99",
+        priceYearly: "990",
+        maxUsers: 25,
+        maxCreators: 3,
+        maxCourses: 50,
+        maxStorageMb: 5000,
+        features: { analytics: true, customBranding: false, apiAccess: false, ssoIntegration: false },
+        isActive: true,
+      });
+      await storage.createLicensePlan({
+        name: "Professional",
+        description: "For growing organizations",
+        priceMonthly: "299",
+        priceYearly: "2990",
+        maxUsers: 100,
+        maxCreators: 10,
+        maxCourses: 200,
+        maxStorageMb: 20000,
+        features: { analytics: true, customBranding: true, apiAccess: true, ssoIntegration: false },
+        isActive: true,
+      });
+      await storage.createLicensePlan({
+        name: "Enterprise",
+        description: "Full-featured for large enterprises",
+        priceMonthly: "999",
+        priceYearly: "9990",
+        maxUsers: 999999,
+        maxCreators: 999999,
+        maxCourses: 999999,
+        maxStorageMb: 100000,
+        features: { analytics: true, customBranding: true, apiAccess: true, ssoIntegration: true },
+        isActive: true,
+      });
+      log("Created default license plans");
+    }
+
+    // Check if "justsigns" organization exists
+    const existingOrg = await storage.getOrganizationBySlug("justsigns");
+    if (!existingOrg) {
+      // Create the organization
+      const org = await storage.createOrganization({
+        name: "JustSigns",
+        slug: "justsigns",
+        description: "Sign language learning organization",
+        isActive: true,
+      });
+      log("Created JustSigns organization");
+
+      // Get Starter plan for the license
+      const starterPlan = (await storage.getAllLicensePlans()).find(p => p.name === "Starter");
+      if (starterPlan) {
+        await storage.createOrganizationLicense({
+          organizationId: org.id,
+          planId: starterPlan.id,
+          status: "active",
+          currentUsers: 2,
+          currentCourses: 0,
+        });
+        log("Created license for JustSigns organization");
+      }
+
+      // Create OrgAdmin user
+      const adminUser = await storage.createUser({
+        name: "JustSigns Admin",
+        email: "admin@justsigns.com",
+        password: "admin123",
+        role: "OrgAdmin",
+        organizationId: org.id,
+        groupIds: [],
+      });
+      log("Created JustSigns admin user");
+
+      // Create admin membership
+      await storage.createOrganizationMembership({
+        organizationId: org.id,
+        userId: adminUser.id,
+        role: "admin",
+      });
+
+      // Create Learner user
+      const learnerUser = await storage.createUser({
+        name: "John Learner",
+        email: "learner@justsigns.com",
+        password: "learner123",
+        role: "Learner",
+        organizationId: org.id,
+        groupIds: [],
+      });
+      log("Created JustSigns learner user");
+
+      // Create learner membership
+      await storage.createOrganizationMembership({
+        organizationId: org.id,
+        userId: learnerUser.id,
+        role: "member",
+      });
+
+      log("JustSigns demo organization setup complete");
+    }
+  } catch (error) {
+    log(`Seed data error: ${error}`);
+  }
+}
+
 (async () => {
   await registerRoutes(httpServer, app);
+  
+  // Seed demo data
+  await seedDemoData();
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
     const status = err.status || err.statusCode || 500;
