@@ -2,12 +2,14 @@ import { useState, useMemo } from 'react';
 import { Topic, QuizData, ContentType, ContentBlock, Group } from '../types';
 import { generateQuiz, analyzeVideoContent, askQuestionAboutTopic } from '../services/geminiService';
 import Quiz from './Quiz';
+import ModuleLearnerView from './ModuleLearnerView';
 import { SparklesIcon, LoaderIcon, FileTextIcon, VideoIcon, UsersIcon, MessageSquareIcon, SendIcon, ClipboardListIcon, CheckIcon, ImageIcon } from './icons';
-import { Eye, Download, ExternalLink } from 'lucide-react';
+import { Eye, Download, ExternalLink, BookOpen } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 interface TopicViewProps {
   topic: Topic;
@@ -127,6 +129,15 @@ export default function TopicView({ topic, onMarkComplete, groups }: TopicViewPr
           </div>
         )}
 
+        {topic.modules && topic.modules.length > 0 ? (
+          <div className="mb-8">
+            <ModuleLearnerView
+              modules={topic.modules}
+              topicId={topic.id}
+              onAllModulesComplete={() => onMarkComplete(topic.id)}
+            />
+          </div>
+        ) : (
         <div className="prose prose-lg max-w-none text-foreground space-y-6">
           {topic.content.map((block, index) => {
             if (!block.content) return null;
@@ -291,6 +302,7 @@ export default function TopicView({ topic, onMarkComplete, groups }: TopicViewPr
             }
           })}
         </div>
+        )}
       </div>
 
       <Card className="max-w-4xl mx-auto mt-12 mb-8 p-6 bg-primary/5 border-primary/10">

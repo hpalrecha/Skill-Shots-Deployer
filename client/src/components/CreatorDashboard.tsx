@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
-import { Topic, TopicStatus, ContentType, User, Group, UserRole, ContentBlock } from '../types';
+import { Topic, TopicStatus, ContentType, User, Group, UserRole, ContentBlock, CourseModule } from '../types';
 import { FileTextIcon, VideoIcon, PlusIcon, TrashIcon, EditIcon, CheckIcon, XIcon, UserCircleIcon, UsersIcon, SparklesIcon, LoaderIcon, UploadIcon, LinkIcon, ClipboardListIcon, ImageIcon } from './icons';
+import ModuleEditor from './ModuleEditor';
 import { generateCourseFromPrompt, CourseResource } from '../services/geminiService';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -57,6 +58,7 @@ export default function CreatorDashboard({
   const [isSop, setIsSop] = useState(false);
 
   const [contentBlocks, setContentBlocks] = useState<ContentBlock[]>([]);
+  const [courseModules, setCourseModules] = useState<CourseModule[]>([]);
   const [uploadModeMap, setUploadModeMap] = useState<Record<number, boolean>>({});
   const [uploadingBlocks, setUploadingBlocks] = useState<Record<number, boolean>>({});
 
@@ -88,6 +90,7 @@ export default function CreatorDashboard({
     setTopicImage(topic.imageUrl);
     setIsSop(topic.isSop || false);
     setContentBlocks([...topic.content]);
+    setCourseModules(topic.modules ? [...topic.modules] : []);
     
     // Set upload mode for blocks that have base64 data (uploaded files)
     const uploadModes: Record<number, boolean> = {};
@@ -124,6 +127,7 @@ export default function CreatorDashboard({
     setTopicReadTime(5);
     setTopicImage('https://images.unsplash.com/photo-1516321318423-f06f85e504b3?q=80&w=1200');
     setContentBlocks([{ type: ContentType.Paragraph, content: '', order: 1 }]);
+    setCourseModules([]);
     setUploadModeMap({});
     setIsSop(false);
     setShareMode('all');
@@ -160,6 +164,7 @@ export default function CreatorDashboard({
       imageUrl: topicImage,
       status: TopicStatus.Pending,
       content: validBlocks,
+      modules: courseModules.length > 0 ? courseModules : undefined,
       sharedWith: finalSharedWithGroups,
       sharedWithUsers: finalSharedWithUsers,
       isSop: isSop
@@ -520,6 +525,13 @@ export default function CreatorDashboard({
                     </Card>
                   ))}
                 </div>
+
+                <ModuleEditor
+                  modules={courseModules}
+                  contentBlocks={contentBlocks}
+                  topicTitle={topicTitle}
+                  onModulesChange={setCourseModules}
+                />
 
                 <div className="space-y-4">
                   <Label className="text-lg font-semibold">Sharing Settings</Label>
