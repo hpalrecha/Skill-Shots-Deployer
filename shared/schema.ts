@@ -1,14 +1,75 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, integer, boolean, timestamp, jsonb } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, integer, boolean, timestamp, jsonb, decimal } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
+
+// ==================== MULTI-TENANT TABLES ====================
+
+// Organizations table - each customer organization
+export const organizations = pgTable("organizations", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  slug: text("slug").notNull().unique(),
+  logoUrl: text("logo_url"),
+  description: text("description"),
+  isActive: boolean("is_active").notNull().default(true),
+  settings: jsonb("settings").default(sql`'{}'::jsonb`),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// License plans - defines what features and limits each tier has
+export const licensePlans = pgTable("license_plans", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  description: text("description"),
+  maxUsers: integer("max_users").notNull().default(10),
+  maxCreators: integer("max_creators").notNull().default(2),
+  maxCourses: integer("max_courses").notNull().default(20),
+  maxStorageMb: integer("max_storage_mb").notNull().default(1000),
+  features: jsonb("features").default(sql`'{"aiQuizGeneration": true, "analytics": true, "certificates": false}'::jsonb`),
+  priceMonthly: decimal("price_monthly", { precision: 10, scale: 2 }),
+  priceYearly: decimal("price_yearly", { precision: 10, scale: 2 }),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Organization licenses - tracks which plan each org has
+export const organizationLicenses = pgTable("organization_licenses", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  organizationId: varchar("organization_id").notNull(),
+  planId: varchar("plan_id").notNull(),
+  status: text("status").notNull().default("active"), // active, expired, suspended
+  currentUsers: integer("current_users").notNull().default(0),
+  currentCreators: integer("current_creators").notNull().default(0),
+  currentCourses: integer("current_courses").notNull().default(0),
+  currentStorageMb: integer("current_storage_mb").notNull().default(0),
+  startsAt: timestamp("starts_at").defaultNow(),
+  expiresAt: timestamp("expires_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Organization memberships - links users to organizations with roles
+export const organizationMemberships = pgTable("organization_memberships", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull(),
+  organizationId: varchar("organization_id").notNull(),
+  role: text("role").notNull().default("Learner"), // OrgAdmin, Creator, Learner
+  isActive: boolean("is_active").notNull().default(true),
+  joinedAt: timestamp("joined_at").defaultNow(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// ==================== EXISTING TABLES (updated with organizationId) ====================
 
 export const users = pgTable("users", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   name: text("name").notNull(),
   email: text("email").notNull().unique(),
   password: text("password").notNull(),
-  role: text("role").notNull().default("Learner"),
+  role: text("role").notNull().default("Learner"), // SuperAdmin, OrgAdmin, Creator, Learner
+  organizationId: varchar("organization_id"), // null for SuperAdmin (platform-level)
   groupIds: text("group_ids").array().default(sql`ARRAY[]::text[]`),
   createdAt: timestamp("created_at").defaultNow(),
 });
@@ -24,6 +85,7 @@ export const topics = pgTable("topics", {
   title: text("title").notNull(),
   category: text("category").notNull(),
   authorId: varchar("author_id").notNull(),
+  organizationId: varchar("organization_id"), // courses belong to an organization
   readTime: integer("read_time").notNull().default(5),
   content: jsonb("content").notNull().default(sql`'[]'::jsonb`),
   modules: jsonb("modules").default(sql`'[]'::jsonb`),
@@ -39,6 +101,7 @@ export const userProgress = pgTable("user_progress", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   userId: varchar("user_id").notNull(),
   topicId: varchar("topic_id").notNull(),
+  organizationId: varchar("organization_id"),
   status: text("status").notNull().default("Pending"),
   quizScore: integer("quiz_score"),
   quizTotal: integer("quiz_total"),
@@ -52,6 +115,7 @@ export const moduleProgress = pgTable("module_progress", {
   userId: varchar("user_id").notNull(),
   topicId: varchar("topic_id").notNull(),
   moduleId: varchar("module_id").notNull(),
+  organizationId: varchar("organization_id"),
   status: text("status").notNull().default("locked"),
   quizScore: integer("quiz_score"),
   quizTotal: integer("quiz_total"),
@@ -76,6 +140,7 @@ export const userStats = pgTable("user_stats", {
 export const leaderboard = pgTable("leaderboard", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   userId: varchar("user_id").notNull().unique(),
+  organizationId: varchar("organization_id"),
   points: integer("points").notNull().default(0),
   rank: integer("rank"),
   updatedAt: timestamp("updated_at").defaultNow(),
@@ -91,10 +156,37 @@ export const courseCompletions = pgTable("course_completions", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   userId: varchar("user_id").notNull(),
   topicId: varchar("topic_id").notNull(),
+  organizationId: varchar("organization_id"),
   completedAt: timestamp("completed_at").defaultNow(),
   averageScore: integer("average_score"),
   totalModules: integer("total_modules"),
 });
+
+// ==================== INSERT SCHEMAS FOR MULTI-TENANT TABLES ====================
+
+export const insertOrganizationSchema = createInsertSchema(organizations).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertLicensePlanSchema = createInsertSchema(licensePlans).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertOrganizationLicenseSchema = createInsertSchema(organizationLicenses).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertOrganizationMembershipSchema = createInsertSchema(organizationMemberships).omit({
+  id: true,
+  createdAt: true,
+});
+
+// ==================== INSERT SCHEMAS FOR EXISTING TABLES ====================
 
 export const insertUserSchema = createInsertSchema(users).omit({
   id: true,
@@ -143,6 +235,22 @@ export const insertCourseCompletionSchema = createInsertSchema(courseCompletions
   completedAt: true,
 });
 
+// ==================== TYPES FOR MULTI-TENANT TABLES ====================
+
+export type InsertOrganization = z.infer<typeof insertOrganizationSchema>;
+export type Organization = typeof organizations.$inferSelect;
+
+export type InsertLicensePlan = z.infer<typeof insertLicensePlanSchema>;
+export type LicensePlan = typeof licensePlans.$inferSelect;
+
+export type InsertOrganizationLicense = z.infer<typeof insertOrganizationLicenseSchema>;
+export type OrganizationLicense = typeof organizationLicenses.$inferSelect;
+
+export type InsertOrganizationMembership = z.infer<typeof insertOrganizationMembershipSchema>;
+export type OrganizationMembership = typeof organizationMemberships.$inferSelect;
+
+// ==================== TYPES FOR EXISTING TABLES ====================
+
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
 
@@ -179,7 +287,8 @@ export const registerSchema = z.object({
   name: z.string().min(2),
   email: z.string().email(),
   password: z.string().min(6),
-  role: z.enum(["Learner", "Creator", "Admin"]).optional().default("Learner"),
+  role: z.enum(["SuperAdmin", "OrgAdmin", "Creator", "Learner"]).optional().default("Learner"),
+  organizationId: z.string().optional(),
 });
 
 export type LoginInput = z.infer<typeof loginSchema>;
