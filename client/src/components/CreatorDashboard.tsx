@@ -83,6 +83,7 @@ export default function CreatorDashboard({
   const [newCategoryInput, setNewCategoryInput] = useState('');
 
   const startEditTopic = (topic: Topic) => {
+    console.log('startEditTopic - topic.modules:', topic.modules);
     setEditTopicId(topic.id);
     setTopicTitle(topic.title);
     setTopicCategory(topic.category);
