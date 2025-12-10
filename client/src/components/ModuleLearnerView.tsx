@@ -18,6 +18,7 @@ import {
 } from './icons';
 import { Lock, CheckCircle2, Play, Target, BookOpen } from 'lucide-react';
 import ModuleQuiz from './ModuleQuiz';
+import CourseCompletionModal from './CourseCompletionModal';
 
 interface ModuleLearnerViewProps {
   modules: CourseModule[];
@@ -43,6 +44,8 @@ export default function ModuleLearnerView({
   const [showQuiz, setShowQuiz] = useState(false);
   const [quizModule, setQuizModule] = useState<CourseModule | null>(null);
   const [isLoadingProgress, setIsLoadingProgress] = useState(true);
+  const [showCompletionModal, setShowCompletionModal] = useState(false);
+  const [completionData, setCompletionData] = useState<{ courseTitle: string; averageScore: number } | null>(null);
 
   useEffect(() => {
     loadProgress();
@@ -137,8 +140,33 @@ export default function ModuleLearnerView({
 
       // Check if all modules are completed
       const allCompleted = modules.every(m => newProgress[m.id]?.status === 'completed');
-      if (allCompleted && onAllModulesComplete) {
-        onAllModulesComplete();
+      if (allCompleted) {
+        // Check and record course completion
+        try {
+          const response = await fetch('/api/course-completions/check', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({ topicId })
+          });
+          
+          if (response.ok) {
+            const data = await response.json();
+            if (data.isNew && data.completion) {
+              setCompletionData({
+                courseTitle: data.topicTitle || 'this course',
+                averageScore: data.completion.averageScore || 0,
+              });
+              setShowCompletionModal(true);
+            }
+          }
+        } catch (error) {
+          console.error('Failed to check course completion:', error);
+        }
+        
+        if (onAllModulesComplete) {
+          onAllModulesComplete();
+        }
       }
     } else {
       // Update progress with failed attempt
@@ -412,6 +440,13 @@ export default function ModuleLearnerView({
           </div>
         </Card>
       )}
+
+      <CourseCompletionModal
+        isOpen={showCompletionModal}
+        onClose={() => setShowCompletionModal(false)}
+        courseTitle={completionData?.courseTitle || ''}
+        averageScore={completionData?.averageScore || 0}
+      />
     </div>
   );
 }
