@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
-import { Building2, Plus, Users, BookOpen, CreditCard, Settings, Trash2, Edit2, Crown, CheckCircle2, UserPlus, Shield, Mail } from "lucide-react";
+import { Building2, Plus, Users, BookOpen, CreditCard, Settings, Trash2, Edit2, Crown, CheckCircle2, UserPlus, Shield, Mail, Brain, TrendingUp, Zap } from "lucide-react";
 
 interface Organization {
   id: string;
@@ -67,6 +67,25 @@ interface OrgAdmin {
   };
 }
 
+interface AiUsageSummary {
+  organizationId: string | null;
+  organizationName: string;
+  totalRequests: number;
+  totalPromptTokens: number;
+  totalCompletionTokens: number;
+  totalTokens: number;
+  estimatedCost: number;
+  endpointBreakdown: { endpoint: string; requests: number; tokens: number }[];
+}
+
+interface PlatformTotals {
+  totalRequests: number;
+  totalTokens: number;
+  totalPromptTokens: number;
+  totalCompletionTokens: number;
+  estimatedCost: number;
+}
+
 interface SuperAdminDashboardProps {
   currentUser: {
     id: string;
@@ -95,6 +114,15 @@ export default function SuperAdminDashboard({ currentUser }: SuperAdminDashboard
     email: "",
     password: "",
   });
+  const [aiUsageSummary, setAiUsageSummary] = useState<AiUsageSummary[]>([]);
+  const [platformTotals, setPlatformTotals] = useState<PlatformTotals>({
+    totalRequests: 0,
+    totalTokens: 0,
+    totalPromptTokens: 0,
+    totalCompletionTokens: 0,
+    estimatedCost: 0,
+  });
+  const [isAiUsageLoading, setIsAiUsageLoading] = useState(false);
   
   const { toast } = useToast();
 
@@ -148,6 +176,28 @@ export default function SuperAdminDashboard({ currentUser }: SuperAdminDashboard
       }
     } catch (error) {
       console.error('Error fetching org admins:', error);
+    }
+  };
+
+  const fetchAiUsage = async () => {
+    setIsAiUsageLoading(true);
+    try {
+      const response = await fetch('/api/ai-usage/summary', { credentials: 'include' });
+      if (response.ok) {
+        const data = await response.json();
+        setAiUsageSummary(data.summary || []);
+        setPlatformTotals(data.platformTotals || {
+          totalRequests: 0,
+          totalTokens: 0,
+          totalPromptTokens: 0,
+          totalCompletionTokens: 0,
+          estimatedCost: 0,
+        });
+      }
+    } catch (error) {
+      console.error('Error fetching AI usage:', error);
+    } finally {
+      setIsAiUsageLoading(false);
     }
   };
 
@@ -622,6 +672,10 @@ export default function SuperAdminDashboard({ currentUser }: SuperAdminDashboard
             <CreditCard className="h-4 w-4 mr-2" />
             License Plans
           </TabsTrigger>
+          <TabsTrigger value="ai-usage" data-testid="tab-ai-usage" onClick={fetchAiUsage}>
+            <Brain className="h-4 w-4 mr-2" />
+            AI Usage
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="organizations" className="space-y-4">
@@ -893,6 +947,161 @@ export default function SuperAdminDashboard({ currentUser }: SuperAdminDashboard
               </Card>
             ))}
           </div>
+        </TabsContent>
+
+        <TabsContent value="ai-usage" className="space-y-4">
+          {isAiUsageLoading ? (
+            <Card>
+              <CardContent className="flex items-center justify-center py-12">
+                <div className="animate-pulse text-muted-foreground">Loading AI usage data...</div>
+              </CardContent>
+            </Card>
+          ) : (
+            <>
+              <div className="grid gap-4 md:grid-cols-4">
+                <Card>
+                  <CardHeader className="flex flex-row items-center justify-between gap-2 pb-2">
+                    <CardTitle className="text-sm font-medium">Total API Requests</CardTitle>
+                    <Zap className="h-4 w-4 text-muted-foreground" />
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold">{platformTotals.totalRequests.toLocaleString()}</div>
+                    <p className="text-xs text-muted-foreground">Across all organizations</p>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardHeader className="flex flex-row items-center justify-between gap-2 pb-2">
+                    <CardTitle className="text-sm font-medium">Total Tokens</CardTitle>
+                    <Brain className="h-4 w-4 text-muted-foreground" />
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold">{platformTotals.totalTokens.toLocaleString()}</div>
+                    <p className="text-xs text-muted-foreground">
+                      {platformTotals.totalPromptTokens.toLocaleString()} input / {platformTotals.totalCompletionTokens.toLocaleString()} output
+                    </p>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardHeader className="flex flex-row items-center justify-between gap-2 pb-2">
+                    <CardTitle className="text-sm font-medium">Estimated Cost</CardTitle>
+                    <TrendingUp className="h-4 w-4 text-muted-foreground" />
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold">${platformTotals.estimatedCost.toFixed(4)}</div>
+                    <p className="text-xs text-muted-foreground">Based on Gemini pricing</p>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardHeader className="flex flex-row items-center justify-between gap-2 pb-2">
+                    <CardTitle className="text-sm font-medium">Organizations Using AI</CardTitle>
+                    <Building2 className="h-4 w-4 text-muted-foreground" />
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold">{aiUsageSummary.length}</div>
+                    <p className="text-xs text-muted-foreground">With recorded usage</p>
+                  </CardContent>
+                </Card>
+              </div>
+
+              {aiUsageSummary.length === 0 ? (
+                <Card>
+                  <CardContent className="flex flex-col items-center justify-center py-12">
+                    <Brain className="h-12 w-12 text-muted-foreground mb-4" />
+                    <h3 className="text-lg font-medium mb-2">No AI usage recorded yet</h3>
+                    <p className="text-muted-foreground text-center">
+                      AI token usage will appear here once users start using AI-powered features.
+                    </p>
+                  </CardContent>
+                </Card>
+              ) : (
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Usage by Organization</CardTitle>
+                    <CardDescription>Token usage breakdown per customer organization</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-4">
+                      {aiUsageSummary.map((org) => (
+                        <div
+                          key={org.organizationId || 'platform'}
+                          className="flex items-center justify-between p-4 border rounded-md"
+                          data-testid={`ai-usage-org-${org.organizationId || 'platform'}`}
+                        >
+                          <div className="space-y-1">
+                            <p className="font-medium">{org.organizationName}</p>
+                            <div className="flex gap-4 text-sm text-muted-foreground">
+                              <span>{org.totalRequests} requests</span>
+                              <span>{org.totalTokens.toLocaleString()} tokens</span>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-lg font-semibold">${org.estimatedCost.toFixed(4)}</p>
+                            <p className="text-xs text-muted-foreground">estimated cost</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
+              <Card>
+                <CardHeader>
+                  <CardTitle>Feature Usage Breakdown</CardTitle>
+                  <CardDescription>Token usage by AI endpoint/feature</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    {(() => {
+                      const endpointTotals = new Map<string, { requests: number; tokens: number }>();
+                      aiUsageSummary.forEach((org) => {
+                        org.endpointBreakdown?.forEach((ep) => {
+                          const current = endpointTotals.get(ep.endpoint) || { requests: 0, tokens: 0 };
+                          endpointTotals.set(ep.endpoint, {
+                            requests: current.requests + ep.requests,
+                            tokens: current.tokens + ep.tokens,
+                          });
+                        });
+                      });
+                      const sortedEndpoints = Array.from(endpointTotals.entries())
+                        .sort((a, b) => b[1].tokens - a[1].tokens);
+                      
+                      if (sortedEndpoints.length === 0) {
+                        return (
+                          <p className="text-sm text-muted-foreground text-center py-4">
+                            No endpoint data available yet
+                          </p>
+                        );
+                      }
+
+                      return sortedEndpoints.map(([endpoint, data]) => {
+                        const percentage = platformTotals.totalTokens > 0 
+                          ? (data.tokens / platformTotals.totalTokens) * 100 
+                          : 0;
+                        const endpointName = endpoint.replace('/api/gemini/', '').replace(/-/g, ' ');
+                        return (
+                          <div key={endpoint} className="space-y-1">
+                            <div className="flex justify-between text-sm">
+                              <span className="capitalize">{endpointName}</span>
+                              <span className="text-muted-foreground">
+                                {data.requests} calls / {data.tokens.toLocaleString()} tokens
+                              </span>
+                            </div>
+                            <div className="h-2 bg-secondary rounded-full overflow-hidden">
+                              <div
+                                className="h-full bg-primary rounded-full transition-all"
+                                style={{ width: `${percentage}%` }}
+                              />
+                            </div>
+                          </div>
+                        );
+                      });
+                    })()}
+                  </div>
+                </CardContent>
+              </Card>
+            </>
+          )}
         </TabsContent>
       </Tabs>
 
