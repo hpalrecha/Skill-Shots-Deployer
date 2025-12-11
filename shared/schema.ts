@@ -27,6 +27,7 @@ export const licensePlans = pgTable("license_plans", {
   maxCreators: integer("max_creators").notNull().default(2),
   maxCourses: integer("max_courses").notNull().default(20),
   maxStorageMb: integer("max_storage_mb").notNull().default(1000),
+  maxTokensPerMonth: integer("max_tokens_per_month").notNull().default(1000000),
   features: jsonb("features").default(sql`'{"aiQuizGeneration": true, "analytics": true, "certificates": false}'::jsonb`),
   priceMonthly: decimal("price_monthly", { precision: 10, scale: 2 }),
   priceYearly: decimal("price_yearly", { precision: 10, scale: 2 }),

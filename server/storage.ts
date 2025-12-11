@@ -1,5 +1,5 @@
 import { db } from "./db";
-import { eq, and, inArray, desc, sql, isNull } from "drizzle-orm";
+import { eq, and, inArray, desc, sql, isNull, gte } from "drizzle-orm";
 import {
   users,
   groups,
@@ -143,6 +143,7 @@ export interface IStorage {
   getAllAiUsage(): Promise<AiUsage[]>;
   getAiUsageSummary(): Promise<AiUsageSummary[]>;
   getAiUsageSummaryByOrganization(organizationId: string): Promise<AiUsageOrganizationSummary>;
+  checkTokenCap(organizationId: string): Promise<{ withinLimit: boolean; used: number; limit: number; remaining: number }>;
 }
 
 export interface AnalyticsOverview {
@@ -1085,6 +1086,37 @@ export class DatabaseStorage implements IStorage {
       dailyUsage: Array.from(dailyMap.entries())
         .map(([date, data]) => ({ date, ...data }))
         .sort((a, b) => a.date.localeCompare(b.date)),
+    };
+  }
+
+  async checkTokenCap(organizationId: string): Promise<{ withinLimit: boolean; used: number; limit: number; remaining: number }> {
+    const license = await this.getOrganizationLicense(organizationId);
+    if (!license) {
+      return { withinLimit: true, used: 0, limit: 1000000, remaining: 1000000 };
+    }
+    
+    const plan = await this.getLicensePlan(license.planId);
+    const maxTokens = (plan as any)?.maxTokensPerMonth ?? 1000000;
+    
+    const now = new Date();
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    
+    const usages = await db.select().from(aiUsage)
+      .where(
+        and(
+          eq(aiUsage.organizationId, organizationId),
+          gte(aiUsage.createdAt, startOfMonth)
+        )
+      );
+    
+    const totalUsed = usages.reduce((sum, u) => sum + u.totalTokens, 0);
+    const remaining = Math.max(0, maxTokens - totalUsed);
+    
+    return {
+      withinLimit: totalUsed < maxTokens,
+      used: totalUsed,
+      limit: maxTokens,
+      remaining,
     };
   }
 }

@@ -24,6 +24,31 @@ const TOKEN_PRICING: Record<string, { input: number; output: number }> = {
   "gemini-2.5-pro": { input: 0.0025, output: 0.01 },
 };
 
+// Helper function to check if organization has exceeded token cap
+// Reserves an estimated buffer for the incoming request to prevent overshoot
+async function checkTokenCapHelper(organizationId?: string | null, estimatedTokens: number = 5000): Promise<{ allowed: boolean; message?: string; remaining?: number }> {
+  if (!organizationId) {
+    return { allowed: true };
+  }
+  
+  try {
+    const capInfo = await storage.checkTokenCap(organizationId);
+    // Check if current usage + estimated request tokens would exceed limit
+    const wouldExceed = (capInfo.used + estimatedTokens) >= capInfo.limit;
+    if (!capInfo.withinLimit || wouldExceed) {
+      return {
+        allowed: false,
+        message: `Your organization has reached its monthly AI token limit (${capInfo.limit.toLocaleString()} tokens). Please contact your administrator to upgrade your plan.`,
+        remaining: capInfo.remaining,
+      };
+    }
+    return { allowed: true, remaining: capInfo.remaining };
+  } catch (err) {
+    console.warn('Failed to check token cap:', err);
+    return { allowed: true };
+  }
+}
+
 // Helper function to log AI usage after API calls
 async function logAiUsageHelper(
   endpoint: string,
@@ -118,6 +143,11 @@ export async function registerRoutes(
     try {
       const { content, organizationId, userId } = req.body;
       
+      const capCheck = await checkTokenCapHelper(organizationId);
+      if (!capCheck.allowed) {
+        return res.status(429).json({ error: capCheck.message });
+      }
+      
       if (!content || !Array.isArray(content)) {
         return res.status(400).json({ error: "Content blocks are required" });
       }
@@ -181,6 +211,11 @@ export async function registerRoutes(
     try {
       const { message, useThinkingMode, systemInstruction, organizationId, userId } = req.body;
       
+      const capCheck = await checkTokenCapHelper(organizationId);
+      if (!capCheck.allowed) {
+        return res.status(429).json({ error: capCheck.message });
+      }
+      
       if (!message) {
         return res.status(400).json({ error: "Message is required" });
       }
@@ -209,6 +244,11 @@ export async function registerRoutes(
   app.post("/api/gemini/analyze-video", async (req, res) => {
     try {
       const { videoTitle, videoUrl, organizationId, userId } = req.body;
+      
+      const capCheck = await checkTokenCapHelper(organizationId);
+      if (!capCheck.allowed) {
+        return res.status(429).json({ error: capCheck.message });
+      }
       
       if (!videoTitle && !videoUrl) {
         return res.status(400).json({ error: "Video title or URL is required" });
@@ -246,6 +286,11 @@ Format your response in a clear, educational manner suitable for a corporate lea
   app.post("/api/gemini/ask-question", async (req, res) => {
     try {
       const { content, question, organizationId, userId } = req.body;
+      
+      const capCheck = await checkTokenCapHelper(organizationId);
+      if (!capCheck.allowed) {
+        return res.status(429).json({ error: capCheck.message });
+      }
       
       if (!content || !question) {
         return res.status(400).json({ error: "Content and question are required" });
@@ -287,6 +332,11 @@ Provide a helpful, educational answer. If the question cannot be fully answered 
   app.post("/api/gemini/topic-chat", async (req, res) => {
     try {
       const { content, topicTitle, question, chatHistory, organizationId, userId } = req.body;
+      
+      const capCheck = await checkTokenCapHelper(organizationId);
+      if (!capCheck.allowed) {
+        return res.status(429).json({ error: capCheck.message });
+      }
       
       if (!content || !question) {
         return res.status(400).json({ error: "Content and question are required" });
@@ -341,6 +391,11 @@ Based on the course content provided, give a brief, helpful response.`;
   app.post("/api/gemini/generate-course", async (req, res) => {
     try {
       const { prompt, resources, organizationId, userId } = req.body;
+      
+      const capCheck = await checkTokenCapHelper(organizationId, 15000);
+      if (!capCheck.allowed) {
+        return res.status(429).json({ error: capCheck.message });
+      }
       
       if (!prompt) {
         return res.status(400).json({ error: "Prompt is required" });
@@ -412,6 +467,11 @@ Requirements:
   app.post("/api/gemini/generate-modules", async (req, res) => {
     try {
       const { content, title, organizationId, userId } = req.body;
+      
+      const capCheck = await checkTokenCapHelper(organizationId, 20000);
+      if (!capCheck.allowed) {
+        return res.status(429).json({ error: capCheck.message });
+      }
       
       if (!content || !Array.isArray(content)) {
         return res.status(400).json({ error: "Content blocks are required" });
@@ -496,6 +556,11 @@ Requirements:
   app.post("/api/gemini/generate-module-quiz", async (req, res) => {
     try {
       const { moduleContent, moduleTitle, organizationId, userId } = req.body;
+      
+      const capCheck = await checkTokenCapHelper(organizationId);
+      if (!capCheck.allowed) {
+        return res.status(429).json({ error: capCheck.message });
+      }
       
       if (!moduleContent) {
         return res.status(400).json({ error: "Module content is required" });
