@@ -8,6 +8,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { User, Topic, Group, LeaderboardEntry, TopicStatus } from "./types";
 
 import Login from "./components/Login";
+import LandingPage from "./pages/LandingPage";
 import Header from "./components/Header";
 import Home from "./components/Home";
 import Dashboard from "./components/Dashboard";
@@ -418,7 +419,17 @@ function App() {
     return (
       <QueryClientProvider client={queryClient}>
         <TooltipProvider>
-          <Login onLogin={handleLogin} />
+          <Switch>
+            <Route path="/login">
+              <Login onLogin={handleLogin} />
+            </Route>
+            <Route path="/">
+              <LandingPage />
+            </Route>
+            <Route>
+              <Redirect to="/" />
+            </Route>
+          </Switch>
           <Toaster />
         </TooltipProvider>
       </QueryClientProvider>
