@@ -784,6 +784,91 @@ Requirements:
     }
   });
 
+  // Organization registration - creates org in pending state awaiting SuperAdmin approval
+  app.post("/api/auth/register-organization", async (req, res) => {
+    try {
+      const { organizationName, adminName, adminEmail, password, planId } = req.body;
+
+      if (!organizationName || !adminName || !adminEmail || !password || !planId) {
+        return res.status(400).json({ error: "All fields are required" });
+      }
+
+      if (password.length < 6) {
+        return res.status(400).json({ error: "Password must be at least 6 characters" });
+      }
+
+      // Check if email already exists
+      const existingUser = await storage.getUserByEmail(adminEmail);
+      if (existingUser) {
+        return res.status(409).json({ error: "An account with this email already exists" });
+      }
+
+      // Check if plan exists
+      const plan = await storage.getLicensePlan(planId);
+      if (!plan) {
+        return res.status(400).json({ error: "Invalid plan selected" });
+      }
+
+      // Create slug from organization name
+      const slug = organizationName
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-|-$/g, '');
+
+      // Check if org with this slug exists
+      const existingOrg = await storage.getOrganizationBySlug(slug);
+      if (existingOrg) {
+        return res.status(409).json({ error: "An organization with a similar name already exists" });
+      }
+
+      // Create organization in inactive state (pending approval)
+      const organization = await storage.createOrganization({
+        name: organizationName,
+        slug: slug,
+        isActive: false, // Pending SuperAdmin approval
+        settings: { pendingApproval: true, registeredAt: new Date().toISOString() },
+      });
+
+      // Create the admin user
+      const user = await storage.createUser({
+        name: adminName,
+        email: adminEmail,
+        password, // Will be hashed by storage
+        role: "OrgAdmin",
+        groupIds: [],
+        organizationId: organization.id,
+      });
+
+      // Create organization membership
+      await storage.createOrganizationMembership({
+        userId: user.id,
+        organizationId: organization.id,
+        role: "OrgAdmin",
+        isActive: true,
+      });
+
+      // Create organization license with selected plan
+      await storage.createOrganizationLicense({
+        organizationId: organization.id,
+        planId: planId,
+        status: "pending", // Pending until org is approved
+        currentUsers: 1,
+        currentCreators: 0,
+        currentCourses: 0,
+        currentStorageMb: 0,
+      });
+
+      res.status(201).json({
+        message: "Organization registration submitted successfully. Awaiting approval.",
+        organizationId: organization.id,
+        organizationName: organization.name,
+      });
+    } catch (error: any) {
+      console.error("Organization registration error:", error);
+      res.status(500).json({ error: error.message || "Failed to register organization" });
+    }
+  });
+
   app.post("/api/auth/login", async (req, res) => {
     try {
       const parseResult = loginSchema.safeParse(req.body);
@@ -803,6 +888,16 @@ Requirements:
         return res.status(401).json({ error: "Invalid email or password" });
       }
 
+      // Check if user belongs to an organization and if it's active (BEFORE setting session)
+      if (user.organizationId && user.role !== 'SuperAdmin') {
+        const organization = await storage.getOrganization(user.organizationId);
+        if (organization && !organization.isActive) {
+          // Use same error as invalid password to prevent information leakage
+          return res.status(401).json({ error: "Invalid email or password" });
+        }
+      }
+
+      // Only set session after all checks pass
       req.session.userId = user.id;
       
       res.json({

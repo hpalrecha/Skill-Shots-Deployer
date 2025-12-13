@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { User, UserRole } from '../types';
 import { SkillShotsLogo, LoaderIcon, ArrowLeftIcon } from './icons';
 import { Button } from '@/components/ui/button';
@@ -6,9 +6,21 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Building2, CheckCircle2 } from 'lucide-react';
 
 interface LoginProps {
   onLogin: (user: User) => void;
+}
+
+interface LicensePlan {
+  id: string;
+  name: string;
+  description: string;
+  priceMonthly: string;
+  maxUsers: number;
+  maxCreators: number;
+  maxCourses: number;
+  isActive: boolean;
 }
 
 export default function Login({ onLogin }: LoginProps) {
@@ -16,14 +28,42 @@ export default function Login({ onLogin }: LoginProps) {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [mode, setMode] = useState<'login' | 'register' | 'forgot'>('login');
+  const [mode, setMode] = useState<'login' | 'register-org' | 'forgot' | 'register-success'>('login');
   const [forgotEmail, setForgotEmail] = useState('');
   const [forgotSuccess, setForgotSuccess] = useState('');
   
-  const [registerName, setRegisterName] = useState('');
-  const [registerEmail, setRegisterEmail] = useState('');
-  const [registerPassword, setRegisterPassword] = useState('');
-  const [registerRole, setRegisterRole] = useState<'Learner' | 'Creator'>('Learner');
+  const [orgName, setOrgName] = useState('');
+  const [adminName, setAdminName] = useState('');
+  const [adminEmail, setAdminEmail] = useState('');
+  const [adminPassword, setAdminPassword] = useState('');
+  const [selectedPlanId, setSelectedPlanId] = useState('');
+  const [plans, setPlans] = useState<LicensePlan[]>([]);
+  const [isLoadingPlans, setIsLoadingPlans] = useState(false);
+
+  useEffect(() => {
+    if (mode === 'register-org') {
+      fetchPlans();
+    }
+  }, [mode]);
+
+  const fetchPlans = async () => {
+    setIsLoadingPlans(true);
+    try {
+      const response = await fetch('/api/license-plans');
+      if (response.ok) {
+        const data = await response.json();
+        const activePlans = data.filter((p: LicensePlan) => p.isActive);
+        setPlans(activePlans);
+        if (activePlans.length > 0 && !selectedPlanId) {
+          setSelectedPlanId(activePlans[0].id);
+        }
+      }
+    } catch (err) {
+      console.error('Failed to fetch plans:', err);
+    } finally {
+      setIsLoadingPlans(false);
+    }
+  };
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -58,20 +98,21 @@ export default function Login({ onLogin }: LoginProps) {
     }
   };
 
-  const handleRegister = async (e: React.FormEvent) => {
+  const handleRegisterOrganization = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setIsLoading(true);
 
     try {
-      const response = await fetch('/api/auth/register', {
+      const response = await fetch('/api/auth/register-organization', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          name: registerName,
-          email: registerEmail,
-          password: registerPassword,
-          role: registerRole,
+          organizationName: orgName,
+          adminName: adminName,
+          adminEmail: adminEmail,
+          password: adminPassword,
+          planId: selectedPlanId,
         }),
         credentials: 'include',
       });
@@ -82,13 +123,7 @@ export default function Login({ onLogin }: LoginProps) {
         throw new Error(data.error || 'Registration failed');
       }
 
-      onLogin({
-        id: data.id,
-        name: data.name,
-        email: data.email,
-        role: data.role as UserRole,
-        groupIds: data.groupIds || [],
-      });
+      setMode('register-success');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Registration failed');
     } finally {
@@ -112,6 +147,8 @@ export default function Login({ onLogin }: LoginProps) {
     setForgotSuccess('');
   };
 
+  const selectedPlan = plans.find(p => p.id === selectedPlanId);
+
   return (
     <div className="min-h-screen bg-background flex flex-col justify-center items-center p-4">
       <div className="max-w-md w-full mx-auto">
@@ -125,18 +162,36 @@ export default function Login({ onLogin }: LoginProps) {
           <CardHeader className="text-center">
             <CardTitle>
               {mode === 'login' && 'Welcome Back'}
-              {mode === 'register' && 'Create Account'}
+              {mode === 'register-org' && 'Register Your Organization'}
+              {mode === 'register-success' && 'Registration Submitted'}
               {mode === 'forgot' && 'Reset Password'}
             </CardTitle>
-            {mode === 'register' && (
-              <CardDescription>Join SkillShots to start learning</CardDescription>
+            {mode === 'register-org' && (
+              <CardDescription>Set up your organization to start training your team</CardDescription>
             )}
             {mode === 'forgot' && (
               <CardDescription>Enter your email and we'll send you instructions.</CardDescription>
             )}
           </CardHeader>
           <CardContent>
-            {mode === 'forgot' ? (
+            {mode === 'register-success' ? (
+              <div className="text-center py-4">
+                <div className="mx-auto w-16 h-16 bg-chart-2/10 rounded-full flex items-center justify-center mb-4">
+                  <CheckCircle2 className="h-8 w-8 text-chart-2" />
+                </div>
+                <h3 className="text-lg font-semibold mb-2">Thank You for Registering!</h3>
+                <p className="text-muted-foreground text-sm mb-6">
+                  Your organization registration has been submitted for review. Our team will review your application and activate your account shortly. You'll receive an email once your account is ready.
+                </p>
+                <Button
+                  onClick={() => { setMode('login'); resetForm(); }}
+                  className="w-full"
+                  data-testid="button-back-to-login-success"
+                >
+                  Back to Login
+                </Button>
+              </div>
+            ) : mode === 'forgot' ? (
               <>
                 {forgotSuccess ? (
                   <div className="bg-chart-2/10 border border-chart-2/30 text-chart-2 p-4 rounded-lg mb-6 text-center text-sm" data-testid="text-forgot-success">
@@ -174,66 +229,101 @@ export default function Login({ onLogin }: LoginProps) {
                   <ArrowLeftIcon className="h-4 w-4 mr-1"/> Back to Login
                 </Button>
               </>
-            ) : mode === 'register' ? (
+            ) : mode === 'register-org' ? (
               <>
-                <form onSubmit={handleRegister} className="space-y-4">
+                <form onSubmit={handleRegisterOrganization} className="space-y-4">
                   <div className="space-y-2">
-                    <Label htmlFor="register-name">Full Name</Label>
+                    <Label htmlFor="org-name">Organization Name</Label>
+                    <div className="relative">
+                      <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        id="org-name"
+                        type="text"
+                        required
+                        value={orgName}
+                        onChange={(e) => setOrgName(e.target.value)}
+                        placeholder="Acme Corporation"
+                        className="pl-10"
+                        data-testid="input-org-name"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="admin-name">Administrator Name</Label>
                     <Input
-                      id="register-name"
+                      id="admin-name"
                       type="text"
                       required
-                      value={registerName}
-                      onChange={(e) => setRegisterName(e.target.value)}
+                      value={adminName}
+                      onChange={(e) => setAdminName(e.target.value)}
                       placeholder="John Smith"
-                      data-testid="input-register-name"
+                      data-testid="input-admin-name"
                     />
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="register-email">Email Address</Label>
+                    <Label htmlFor="admin-email">Administrator Email</Label>
                     <Input
-                      id="register-email"
+                      id="admin-email"
                       type="email"
                       required
-                      value={registerEmail}
-                      onChange={(e) => setRegisterEmail(e.target.value)}
-                      placeholder="you@example.com"
-                      data-testid="input-register-email"
+                      value={adminEmail}
+                      onChange={(e) => setAdminEmail(e.target.value)}
+                      placeholder="admin@yourcompany.com"
+                      data-testid="input-admin-email"
                     />
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="register-password">Password</Label>
+                    <Label htmlFor="admin-password">Password</Label>
                     <Input
-                      id="register-password"
+                      id="admin-password"
                       type="password"
                       required
                       minLength={6}
-                      value={registerPassword}
-                      onChange={(e) => setRegisterPassword(e.target.value)}
+                      value={adminPassword}
+                      onChange={(e) => setAdminPassword(e.target.value)}
                       placeholder="At least 6 characters"
-                      data-testid="input-register-password"
+                      data-testid="input-admin-password"
                     />
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="register-role">I am a</Label>
-                    <Select value={registerRole} onValueChange={(value) => setRegisterRole(value as 'Learner' | 'Creator')}>
-                      <SelectTrigger data-testid="select-role">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="Learner">Learner - I want to learn new skills</SelectItem>
-                        <SelectItem value="Creator">Creator - I want to create courses</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    <Label htmlFor="plan">Select a Plan</Label>
+                    {isLoadingPlans ? (
+                      <div className="flex items-center justify-center py-4">
+                        <LoaderIcon className="animate-spin h-5 w-5 text-muted-foreground" />
+                      </div>
+                    ) : plans.length > 0 ? (
+                      <>
+                        <Select value={selectedPlanId} onValueChange={setSelectedPlanId}>
+                          <SelectTrigger data-testid="select-plan">
+                            <SelectValue placeholder="Choose a plan" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {plans.map((plan) => (
+                              <SelectItem key={plan.id} value={plan.id}>
+                                {plan.name} - ₹{plan.priceMonthly}/month
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        {selectedPlan && (
+                          <p className="text-xs text-muted-foreground mt-1">
+                            Up to {selectedPlan.maxUsers} users, {selectedPlan.maxCreators} creators, {selectedPlan.maxCourses} courses
+                          </p>
+                        )}
+                      </>
+                    ) : (
+                      <p className="text-sm text-muted-foreground">No plans available. Contact support.</p>
+                    )}
                   </div>
 
                   {error && <p className="text-sm text-center text-destructive" data-testid="text-register-error">{error}</p>}
 
-                  <Button type="submit" disabled={isLoading} className="w-full" data-testid="button-register">
-                    {isLoading ? <LoaderIcon className="animate-spin h-5 w-5" /> : 'Create Account'}
+                  <Button type="submit" disabled={isLoading || !selectedPlanId} className="w-full" data-testid="button-register-org">
+                    {isLoading ? <LoaderIcon className="animate-spin h-5 w-5" /> : 'Register Organization'}
                   </Button>
                 </form>
 
@@ -303,15 +393,15 @@ export default function Login({ onLogin }: LoginProps) {
                 </form>
 
                 <div className="mt-6 text-center">
-                  <span className="text-muted-foreground text-sm">Don't have an account? </span>
+                  <span className="text-muted-foreground text-sm">Want to register your organization? </span>
                   <Button
                     type="button"
                     variant="ghost"
-                    onClick={() => { setMode('register'); resetForm(); }}
+                    onClick={() => { setMode('register-org'); resetForm(); }}
                     className="text-sm p-0 h-auto text-primary"
                     data-testid="button-goto-register"
                   >
-                    Sign up
+                    Get Started
                   </Button>
                 </div>
               </>
