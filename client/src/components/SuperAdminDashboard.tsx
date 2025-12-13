@@ -601,7 +601,7 @@ export default function SuperAdminDashboard({ currentUser }: SuperAdminDashboard
                   <SelectContent>
                     {licensePlans.map(plan => (
                       <SelectItem key={plan.id} value={plan.id}>
-                        {plan.name} - ${plan.priceMonthly}/mo
+                        {plan.name} - ₹{plan.priceMonthly}/mo
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -888,7 +888,7 @@ export default function SuperAdminDashboard({ currentUser }: SuperAdminDashboard
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="text-3xl font-bold">
-                    ${plan.priceMonthly}
+                    ₹{plan.priceMonthly}
                     <span className="text-sm font-normal text-muted-foreground">/month</span>
                   </div>
                   <div className="space-y-2 text-sm">
@@ -992,7 +992,7 @@ export default function SuperAdminDashboard({ currentUser }: SuperAdminDashboard
                     <TrendingUp className="h-4 w-4 text-muted-foreground" />
                   </CardHeader>
                   <CardContent>
-                    <div className="text-2xl font-bold">${platformTotals.estimatedCost.toFixed(4)}</div>
+                    <div className="text-2xl font-bold">₹{platformTotals.estimatedCost.toFixed(4)}</div>
                     <p className="text-xs text-muted-foreground">Based on Gemini pricing</p>
                   </CardContent>
                 </Card>
@@ -1040,7 +1040,7 @@ export default function SuperAdminDashboard({ currentUser }: SuperAdminDashboard
                             </div>
                           </div>
                           <div className="text-right">
-                            <p className="text-lg font-semibold">${org.estimatedCost.toFixed(4)}</p>
+                            <p className="text-lg font-semibold">₹{org.estimatedCost.toFixed(4)}</p>
                             <p className="text-xs text-muted-foreground">estimated cost</p>
                           </div>
                         </div>
@@ -1202,7 +1202,7 @@ export default function SuperAdminDashboard({ currentUser }: SuperAdminDashboard
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="edit-plan-price">Monthly Price ($)</Label>
+                  <Label htmlFor="edit-plan-price">Monthly Price (₹)</Label>
                   <Input
                     id="edit-plan-price"
                     data-testid="input-edit-plan-price"
@@ -1212,7 +1212,7 @@ export default function SuperAdminDashboard({ currentUser }: SuperAdminDashboard
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="edit-plan-yearly">Yearly Price ($)</Label>
+                  <Label htmlFor="edit-plan-yearly">Yearly Price (₹)</Label>
                   <Input
                     id="edit-plan-yearly"
                     data-testid="input-edit-plan-yearly"
