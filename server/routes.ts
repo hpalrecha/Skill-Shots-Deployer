@@ -1605,6 +1605,60 @@ Requirements:
     }
   });
 
+  // SuperAdmin: Approve or reject a pending organization
+  app.post("/api/organizations/:id/approve", async (req, res) => {
+    try {
+      const userId = req.session.userId;
+      if (!userId) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+      
+      const user = await storage.getUser(userId);
+      if (!user || user.role !== "SuperAdmin") {
+        return res.status(403).json({ error: "Access denied. SuperAdmin required." });
+      }
+      
+      const { approved } = req.body;
+      const orgId = req.params.id;
+      
+      const org = await storage.getOrganization(orgId);
+      if (!org) {
+        return res.status(404).json({ error: "Organization not found" });
+      }
+      
+      const existingSettings = (org.settings && typeof org.settings === 'object') ? org.settings : {};
+      
+      if (approved) {
+        // Activate the organization
+        await storage.updateOrganization(orgId, {
+          isActive: true,
+          settings: { ...existingSettings, pendingApproval: false, approvedAt: new Date().toISOString() },
+        });
+        
+        // Also activate the organization license
+        const license = await storage.getOrganizationLicense(orgId);
+        if (license) {
+          await storage.updateOrganizationLicense(license.id, {
+            status: "active",
+          });
+        }
+        
+        res.json({ message: "Organization approved and activated", organizationId: orgId });
+      } else {
+        // Reject - mark as rejected but don't delete (for record keeping)
+        await storage.updateOrganization(orgId, {
+          isActive: false,
+          settings: { ...existingSettings, pendingApproval: false, rejected: true, rejectedAt: new Date().toISOString() },
+        });
+        
+        res.json({ message: "Organization registration rejected", organizationId: orgId });
+      }
+    } catch (error: any) {
+      console.error("Approve organization error:", error);
+      res.status(500).json({ error: error.message || "Failed to process approval" });
+    }
+  });
+
   // SuperAdmin: Delete organization
   app.delete("/api/organizations/:id", async (req, res) => {
     try {

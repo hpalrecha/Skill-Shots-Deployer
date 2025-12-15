@@ -663,8 +663,17 @@ export default function SuperAdminDashboard({ currentUser }: SuperAdminDashboard
         </Card>
       </div>
 
-      <Tabs defaultValue="organizations" className="space-y-4">
+      <Tabs defaultValue={organizations.some(o => !o.isActive && o.settings?.pendingApproval) ? "pending" : "organizations"} className="space-y-4">
         <TabsList>
+          <TabsTrigger value="pending" data-testid="tab-pending">
+            <Shield className="h-4 w-4 mr-2" />
+            Pending Approvals
+            {organizations.filter(o => !o.isActive && o.settings?.pendingApproval).length > 0 && (
+              <Badge variant="destructive" className="ml-2 text-xs">
+                {organizations.filter(o => !o.isActive && o.settings?.pendingApproval).length}
+              </Badge>
+            )}
+          </TabsTrigger>
           <TabsTrigger value="organizations" data-testid="tab-organizations">
             <Building2 className="h-4 w-4 mr-2" />
             Organizations
@@ -678,6 +687,119 @@ export default function SuperAdminDashboard({ currentUser }: SuperAdminDashboard
             AI Usage
           </TabsTrigger>
         </TabsList>
+
+        <TabsContent value="pending" className="space-y-4">
+          {(() => {
+            const pendingOrgs = organizations.filter(o => !o.isActive && o.settings?.pendingApproval);
+            if (pendingOrgs.length === 0) {
+              return (
+                <Card>
+                  <CardContent className="flex flex-col items-center justify-center py-12">
+                    <CheckCircle2 className="h-12 w-12 text-green-500 mb-4" />
+                    <h3 className="text-lg font-medium mb-2">No pending approvals</h3>
+                    <p className="text-muted-foreground text-center">
+                      All organization registrations have been processed.
+                    </p>
+                  </CardContent>
+                </Card>
+              );
+            }
+            return (
+              <div className="grid gap-4">
+                {pendingOrgs.map(org => (
+                  <Card key={org.id} data-testid={`card-pending-org-${org.id}`}>
+                    <CardHeader>
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <CardTitle>{org.name}</CardTitle>
+                            <Badge variant="secondary" className="text-xs">Pending Approval</Badge>
+                            {org.license && (
+                              <Badge variant="outline" className="text-xs">{org.license.planName}</Badge>
+                            )}
+                          </div>
+                          <CardDescription>
+                            Registered: {org.settings?.registeredAt ? new Date(org.settings.registeredAt).toLocaleDateString() : 'Unknown'}
+                          </CardDescription>
+                        </div>
+                        <div className="flex gap-2">
+                          <Button
+                            variant="default"
+                            onClick={async () => {
+                              try {
+                                const response = await fetch(`/api/organizations/${org.id}/approve`, {
+                                  method: 'POST',
+                                  headers: { 'Content-Type': 'application/json' },
+                                  credentials: 'include',
+                                  body: JSON.stringify({ approved: true }),
+                                });
+                                if (response.ok) {
+                                  toast({ title: "Success", description: `${org.name} has been approved and activated.` });
+                                  fetchData();
+                                } else {
+                                  const data = await response.json();
+                                  throw new Error(data.error || 'Failed to approve');
+                                }
+                              } catch (err: any) {
+                                toast({ title: "Error", description: err.message, variant: "destructive" });
+                              }
+                            }}
+                            data-testid={`button-approve-org-${org.id}`}
+                          >
+                            <CheckCircle2 className="h-4 w-4 mr-2" />
+                            Approve
+                          </Button>
+                          <Button
+                            variant="outline"
+                            onClick={async () => {
+                              try {
+                                const response = await fetch(`/api/organizations/${org.id}/approve`, {
+                                  method: 'POST',
+                                  headers: { 'Content-Type': 'application/json' },
+                                  credentials: 'include',
+                                  body: JSON.stringify({ approved: false }),
+                                });
+                                if (response.ok) {
+                                  toast({ title: "Rejected", description: `${org.name} registration has been rejected.` });
+                                  fetchData();
+                                } else {
+                                  const data = await response.json();
+                                  throw new Error(data.error || 'Failed to reject');
+                                }
+                              } catch (err: any) {
+                                toast({ title: "Error", description: err.message, variant: "destructive" });
+                              }
+                            }}
+                            data-testid={`button-reject-org-${org.id}`}
+                          >
+                            <Trash2 className="h-4 w-4 mr-2" />
+                            Reject
+                          </Button>
+                        </div>
+                      </div>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="grid gap-4 md:grid-cols-3">
+                        <div className="space-y-1">
+                          <p className="text-sm text-muted-foreground">Selected Plan</p>
+                          <p className="font-medium">{org.license?.planName || 'No plan'}</p>
+                        </div>
+                        <div className="space-y-1">
+                          <p className="text-sm text-muted-foreground">Max Users</p>
+                          <p className="font-medium">{org.license?.limits?.maxUsers || '-'}</p>
+                        </div>
+                        <div className="space-y-1">
+                          <p className="text-sm text-muted-foreground">Max Courses</p>
+                          <p className="font-medium">{org.license?.limits?.maxCourses || '-'}</p>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            );
+          })()}
+        </TabsContent>
 
         <TabsContent value="organizations" className="space-y-4">
           {organizations.length === 0 ? (
