@@ -1092,6 +1092,31 @@ Requirements:
     }
   });
 
+  app.post("/api/users/:id/reset-password", async (req, res) => {
+    try {
+      const { newPassword } = req.body;
+      if (!newPassword || newPassword.length < 6) {
+        return res.status(400).json({ error: "Password must be at least 6 characters" });
+      }
+      const user = await storage.getUser(req.params.id);
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+      const bcrypt = await import("bcrypt");
+      const hashedPassword = await bcrypt.hash(newPassword, 10);
+      const updatedUser = await storage.updateUser(req.params.id, {
+        password: hashedPassword,
+      });
+      if (!updatedUser) {
+        return res.status(404).json({ error: "Failed to update password" });
+      }
+      res.json({ message: "Password reset successfully" });
+    } catch (error: any) {
+      console.error("Reset password error:", error);
+      res.status(500).json({ error: error.message || "Failed to reset password" });
+    }
+  });
+
   app.delete("/api/categories/:name", async (req, res) => {
     try {
       const deleted = await storage.deleteCategory(req.params.name);

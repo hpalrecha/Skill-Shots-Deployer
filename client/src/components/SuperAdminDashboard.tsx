@@ -10,7 +10,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
-import { Building2, Plus, Users, BookOpen, CreditCard, Settings, Trash2, Edit2, Crown, CheckCircle2, UserPlus, Shield, Mail, Brain, TrendingUp, Zap } from "lucide-react";
+import { Building2, Plus, Users, BookOpen, CreditCard, Settings, Trash2, Edit2, Crown, CheckCircle2, UserPlus, Shield, Mail, Brain, TrendingUp, Zap, Key } from "lucide-react";
+import { Separator } from "@/components/ui/separator";
 
 interface Organization {
   id: string;
@@ -1519,6 +1520,51 @@ export default function SuperAdminDashboard({ currentUser }: SuperAdminDashboard
                   checked={selectedOrgAdmin.isActive}
                   onCheckedChange={(checked) => setSelectedOrgAdmin(prev => prev ? { ...prev, isActive: checked } : null)}
                 />
+              </div>
+              <Separator />
+              <div className="space-y-2">
+                <Label>Reset Password</Label>
+                <div className="flex gap-2">
+                  <Input
+                    id="reset-password"
+                    data-testid="input-reset-password"
+                    type="password"
+                    placeholder="Enter new password (min 6 chars)"
+                    value={(selectedOrgAdmin as any).newPassword || ""}
+                    onChange={(e) => setSelectedOrgAdmin(prev => prev ? { ...prev, newPassword: e.target.value } : null)}
+                  />
+                  <Button
+                    variant="outline"
+                    onClick={async () => {
+                      const newPassword = (selectedOrgAdmin as any).newPassword;
+                      if (!newPassword || newPassword.length < 6) {
+                        toast({ title: "Error", description: "Password must be at least 6 characters", variant: "destructive" });
+                        return;
+                      }
+                      try {
+                        const response = await fetch(`/api/users/${selectedOrgAdmin.userId}/reset-password`, {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          credentials: 'include',
+                          body: JSON.stringify({ newPassword }),
+                        });
+                        if (response.ok) {
+                          toast({ title: "Success", description: "Password has been reset" });
+                          setSelectedOrgAdmin(prev => prev ? { ...prev, newPassword: "" } : null);
+                        } else {
+                          const data = await response.json();
+                          throw new Error(data.error || 'Failed to reset password');
+                        }
+                      } catch (err: any) {
+                        toast({ title: "Error", description: err.message, variant: "destructive" });
+                      }
+                    }}
+                    data-testid="button-reset-password"
+                  >
+                    <Key className="h-4 w-4 mr-2" />
+                    Reset
+                  </Button>
+                </div>
               </div>
             </div>
           )}
