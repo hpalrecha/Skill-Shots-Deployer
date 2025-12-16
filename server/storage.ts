@@ -15,6 +15,7 @@ import {
   organizationLicenses,
   organizationMemberships,
   aiUsage,
+  aiSettings,
   type User,
   type InsertUser,
   type Group,
@@ -43,6 +44,8 @@ import {
   type InsertOrganizationMembership,
   type AiUsage,
   type InsertAiUsage,
+  type AiSettings,
+  type InsertAiSettings,
 } from "@shared/schema";
 import bcrypt from "bcrypt";
 
@@ -144,6 +147,10 @@ export interface IStorage {
   getAiUsageSummary(): Promise<AiUsageSummary[]>;
   getAiUsageSummaryByOrganization(organizationId: string): Promise<AiUsageOrganizationSummary>;
   checkTokenCap(organizationId: string): Promise<{ withinLimit: boolean; used: number; limit: number; remaining: number }>;
+  
+  // AI Settings management
+  getAiSettings(): Promise<AiSettings | undefined>;
+  updateAiSettings(data: Partial<InsertAiSettings>): Promise<AiSettings>;
 }
 
 export interface AnalyticsOverview {
@@ -1118,6 +1125,28 @@ export class DatabaseStorage implements IStorage {
       limit: maxTokens,
       remaining,
     };
+  }
+
+  async getAiSettings(): Promise<AiSettings | undefined> {
+    const [settings] = await db.select().from(aiSettings).limit(1);
+    return settings;
+  }
+
+  async updateAiSettings(data: Partial<InsertAiSettings>): Promise<AiSettings> {
+    const existing = await this.getAiSettings();
+    
+    if (existing) {
+      const [updated] = await db.update(aiSettings)
+        .set({ ...data, updatedAt: new Date() })
+        .where(eq(aiSettings.id, existing.id))
+        .returning();
+      return updated;
+    } else {
+      const [created] = await db.insert(aiSettings)
+        .values({ ...data } as any)
+        .returning();
+      return created;
+    }
   }
 }
 

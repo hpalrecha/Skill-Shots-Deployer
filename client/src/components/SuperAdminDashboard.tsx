@@ -126,6 +126,23 @@ export default function SuperAdminDashboard({ currentUser }: SuperAdminDashboard
   });
   const [isAiUsageLoading, setIsAiUsageLoading] = useState(false);
   
+  // AI Settings state
+  const [aiSettings, setAiSettings] = useState({
+    provider: "gemini",
+    geminiModel: "gemini-2.5-flash",
+    openaiModel: "gpt-4o",
+    deepseekModel: "deepseek-chat",
+    isActive: true,
+    updatedAt: null as string | null,
+    apiKeyStatus: {
+      gemini: false,
+      openai: false,
+      deepseek: false,
+    },
+  });
+  const [isAiSettingsLoading, setIsAiSettingsLoading] = useState(false);
+  const [isSavingAiSettings, setIsSavingAiSettings] = useState(false);
+  
   const { toast } = useToast();
 
   const [newOrg, setNewOrg] = useState({
@@ -200,6 +217,64 @@ export default function SuperAdminDashboard({ currentUser }: SuperAdminDashboard
       console.error('Error fetching AI usage:', error);
     } finally {
       setIsAiUsageLoading(false);
+    }
+  };
+
+  const fetchAiSettings = async () => {
+    setIsAiSettingsLoading(true);
+    try {
+      const response = await fetch('/api/admin/ai-settings', { credentials: 'include' });
+      if (response.ok) {
+        const data = await response.json();
+        setAiSettings(data);
+      }
+    } catch (error) {
+      console.error('Error fetching AI settings:', error);
+    } finally {
+      setIsAiSettingsLoading(false);
+    }
+  };
+
+  const saveAiSettings = async () => {
+    setIsSavingAiSettings(true);
+    try {
+      const response = await fetch('/api/admin/ai-settings', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          provider: aiSettings.provider,
+          geminiModel: aiSettings.geminiModel,
+          openaiModel: aiSettings.openaiModel,
+          deepseekModel: aiSettings.deepseekModel,
+          isActive: aiSettings.isActive,
+        }),
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        setAiSettings(data);
+        toast({
+          title: "Success",
+          description: "AI settings updated successfully",
+        });
+      } else {
+        const error = await response.json();
+        toast({
+          title: "Error",
+          description: error.error || "Failed to update AI settings",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error('Error saving AI settings:', error);
+      toast({
+        title: "Error",
+        description: "Failed to save AI settings",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSavingAiSettings(false);
     }
   };
 
@@ -686,6 +761,10 @@ export default function SuperAdminDashboard({ currentUser }: SuperAdminDashboard
           <TabsTrigger value="ai-usage" data-testid="tab-ai-usage" onClick={fetchAiUsage}>
             <Brain className="h-4 w-4 mr-2" />
             AI Usage
+          </TabsTrigger>
+          <TabsTrigger value="ai-settings" data-testid="tab-ai-settings" onClick={fetchAiSettings}>
+            <Settings className="h-4 w-4 mr-2" />
+            AI Settings
           </TabsTrigger>
         </TabsList>
 
@@ -1225,6 +1304,218 @@ export default function SuperAdminDashboard({ currentUser }: SuperAdminDashboard
                         );
                       });
                     })()}
+                  </div>
+                </CardContent>
+              </Card>
+            </>
+          )}
+        </TabsContent>
+
+        <TabsContent value="ai-settings" className="space-y-4">
+          {isAiSettingsLoading ? (
+            <Card>
+              <CardContent className="flex items-center justify-center py-12">
+                <p className="text-muted-foreground">Loading AI settings...</p>
+              </CardContent>
+            </Card>
+          ) : (
+            <>
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Settings className="h-5 w-5" />
+                    AI Provider Configuration
+                  </CardTitle>
+                  <CardDescription>
+                    Configure which AI provider and model to use for all AI features across the platform.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="ai-provider">Active AI Provider</Label>
+                      <Select
+                        value={aiSettings.provider}
+                        onValueChange={(value) => setAiSettings(prev => ({ ...prev, provider: value }))}
+                      >
+                        <SelectTrigger id="ai-provider" data-testid="select-ai-provider">
+                          <SelectValue placeholder="Select AI provider" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="gemini">
+                            <div className="flex items-center gap-2">
+                              <span>Google Gemini</span>
+                              {aiSettings.apiKeyStatus?.gemini && (
+                                <Badge variant="outline" className="text-xs bg-green-50 text-green-700 dark:bg-green-950 dark:text-green-300">Key Configured</Badge>
+                              )}
+                            </div>
+                          </SelectItem>
+                          <SelectItem value="openai">
+                            <div className="flex items-center gap-2">
+                              <span>OpenAI (ChatGPT)</span>
+                              {aiSettings.apiKeyStatus?.openai && (
+                                <Badge variant="outline" className="text-xs bg-green-50 text-green-700 dark:bg-green-950 dark:text-green-300">Key Configured</Badge>
+                              )}
+                            </div>
+                          </SelectItem>
+                          <SelectItem value="deepseek">
+                            <div className="flex items-center gap-2">
+                              <span>DeepSeek</span>
+                              {aiSettings.apiKeyStatus?.deepseek && (
+                                <Badge variant="outline" className="text-xs bg-green-50 text-green-700 dark:bg-green-950 dark:text-green-300">Key Configured</Badge>
+                              )}
+                            </div>
+                          </SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <Separator />
+
+                    <div className="grid gap-4 md:grid-cols-3">
+                      <div className="space-y-2">
+                        <Label htmlFor="gemini-model">Gemini Model</Label>
+                        <Select
+                          value={aiSettings.geminiModel || "gemini-2.5-flash"}
+                          onValueChange={(value) => setAiSettings(prev => ({ ...prev, geminiModel: value }))}
+                        >
+                          <SelectTrigger id="gemini-model" data-testid="select-gemini-model">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="gemini-2.5-flash">Gemini 2.5 Flash (Fast)</SelectItem>
+                            <SelectItem value="gemini-2.5-pro">Gemini 2.5 Pro (Advanced)</SelectItem>
+                            <SelectItem value="gemini-2.0-flash">Gemini 2.0 Flash</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <div className="flex items-center gap-2">
+                          <Key className="h-3 w-3 text-muted-foreground" />
+                          <span className={`text-xs ${aiSettings.apiKeyStatus?.gemini ? 'text-green-600' : 'text-amber-600'}`}>
+                            {aiSettings.apiKeyStatus?.gemini ? 'API key configured' : 'API key not set'}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="openai-model">OpenAI Model</Label>
+                        <Select
+                          value={aiSettings.openaiModel || "gpt-4o"}
+                          onValueChange={(value) => setAiSettings(prev => ({ ...prev, openaiModel: value }))}
+                        >
+                          <SelectTrigger id="openai-model" data-testid="select-openai-model">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="gpt-4o">GPT-4o (Latest)</SelectItem>
+                            <SelectItem value="gpt-4o-mini">GPT-4o Mini (Fast)</SelectItem>
+                            <SelectItem value="gpt-4-turbo">GPT-4 Turbo</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <div className="flex items-center gap-2">
+                          <Key className="h-3 w-3 text-muted-foreground" />
+                          <span className={`text-xs ${aiSettings.apiKeyStatus?.openai ? 'text-green-600' : 'text-amber-600'}`}>
+                            {aiSettings.apiKeyStatus?.openai ? 'API key configured' : 'API key not set'}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="deepseek-model">DeepSeek Model</Label>
+                        <Select
+                          value={aiSettings.deepseekModel || "deepseek-chat"}
+                          onValueChange={(value) => setAiSettings(prev => ({ ...prev, deepseekModel: value }))}
+                        >
+                          <SelectTrigger id="deepseek-model" data-testid="select-deepseek-model">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="deepseek-chat">DeepSeek Chat</SelectItem>
+                            <SelectItem value="deepseek-coder">DeepSeek Coder</SelectItem>
+                            <SelectItem value="deepseek-reasoner">DeepSeek Reasoner</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <div className="flex items-center gap-2">
+                          <Key className="h-3 w-3 text-muted-foreground" />
+                          <span className={`text-xs ${aiSettings.apiKeyStatus?.deepseek ? 'text-green-600' : 'text-amber-600'}`}>
+                            {aiSettings.apiKeyStatus?.deepseek ? 'API key configured' : 'API key not set'}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <Separator />
+
+                    <div className="flex items-center justify-between">
+                      <div className="space-y-0.5">
+                        <Label>AI Features Status</Label>
+                        <p className="text-sm text-muted-foreground">
+                          Enable or disable AI features platform-wide
+                        </p>
+                      </div>
+                      <Switch
+                        checked={aiSettings.isActive}
+                        onCheckedChange={(checked) => setAiSettings(prev => ({ ...prev, isActive: checked }))}
+                        data-testid="switch-ai-active"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between pt-4 border-t">
+                    <div className="text-sm text-muted-foreground">
+                      {aiSettings.updatedAt && (
+                        <span>Last updated: {new Date(aiSettings.updatedAt).toLocaleString()}</span>
+                      )}
+                    </div>
+                    <Button 
+                      onClick={saveAiSettings} 
+                      disabled={isSavingAiSettings}
+                      data-testid="button-save-ai-settings"
+                    >
+                      {isSavingAiSettings ? "Saving..." : "Save Settings"}
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Key className="h-5 w-5" />
+                    API Key Configuration
+                  </CardTitle>
+                  <CardDescription>
+                    API keys are managed through environment secrets for security. Configure them in the Secrets tab.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    <div className="p-4 bg-muted/50 rounded-md space-y-2">
+                      <h4 className="font-medium">Required Environment Variables</h4>
+                      <div className="grid gap-2 text-sm">
+                        <div className="flex items-center justify-between">
+                          <code className="bg-background px-2 py-1 rounded">GEMINI_API_KEY</code>
+                          <Badge variant={aiSettings.apiKeyStatus?.gemini ? "default" : "secondary"}>
+                            {aiSettings.apiKeyStatus?.gemini ? "Configured" : "Not Set"}
+                          </Badge>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <code className="bg-background px-2 py-1 rounded">OPENAI_API_KEY</code>
+                          <Badge variant={aiSettings.apiKeyStatus?.openai ? "default" : "secondary"}>
+                            {aiSettings.apiKeyStatus?.openai ? "Configured" : "Not Set"}
+                          </Badge>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <code className="bg-background px-2 py-1 rounded">DEEPSEEK_API_KEY</code>
+                          <Badge variant={aiSettings.apiKeyStatus?.deepseek ? "default" : "secondary"}>
+                            {aiSettings.apiKeyStatus?.deepseek ? "Configured" : "Not Set"}
+                          </Badge>
+                        </div>
+                      </div>
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      To add or update API keys, go to the Secrets section in your deployment settings. 
+                      Changes take effect immediately without requiring a restart.
+                    </p>
                   </div>
                 </CardContent>
               </Card>

@@ -163,6 +163,20 @@ export const courseCompletions = pgTable("course_completions", {
   totalModules: integer("total_modules"),
 });
 
+// Platform-wide AI Settings (SuperAdmin configurable)
+// Note: API keys are stored as secrets via environment variables, not in DB
+// This table only stores the selected provider and model preferences
+export const aiSettings = pgTable("ai_settings", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  provider: text("provider").notNull().default("gemini"), // gemini, openai, deepseek
+  geminiModel: text("gemini_model").default("gemini-2.5-flash"),
+  openaiModel: text("openai_model").default("gpt-4o"),
+  deepseekModel: text("deepseek_model").default("deepseek-chat"),
+  isActive: boolean("is_active").notNull().default(true),
+  updatedAt: timestamp("updated_at").defaultNow(),
+  updatedBy: varchar("updated_by"),
+});
+
 // AI Usage tracking for billing accountability
 export const aiUsage = pgTable("ai_usage", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -257,6 +271,11 @@ export const insertAiUsageSchema = createInsertSchema(aiUsage).omit({
   createdAt: true,
 });
 
+export const insertAiSettingsSchema = createInsertSchema(aiSettings).omit({
+  id: true,
+  updatedAt: true,
+});
+
 // ==================== TYPES FOR MULTI-TENANT TABLES ====================
 
 export type InsertOrganization = z.infer<typeof insertOrganizationSchema>;
@@ -302,6 +321,9 @@ export type CourseCompletion = typeof courseCompletions.$inferSelect;
 
 export type InsertAiUsage = z.infer<typeof insertAiUsageSchema>;
 export type AiUsage = typeof aiUsage.$inferSelect;
+
+export type InsertAiSettings = z.infer<typeof insertAiSettingsSchema>;
+export type AiSettings = typeof aiSettings.$inferSelect;
 
 export const loginSchema = z.object({
   email: z.string().email(),

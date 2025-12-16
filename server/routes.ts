@@ -1,28 +1,23 @@
 import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { GoogleGenAI } from "@google/genai";
 import { loginSchema, registerSchema } from "@shared/schema";
+import { generateContent, calculateCost, invalidateSettingsCache } from "./services/aiService";
+import { z } from "zod";
+
+const aiSettingsSchema = z.object({
+  provider: z.enum(["gemini", "openai", "deepseek"]).default("gemini"),
+  geminiModel: z.enum(["gemini-2.5-flash", "gemini-2.5-pro", "gemini-2.0-flash"]).optional(),
+  openaiModel: z.enum(["gpt-4o", "gpt-4o-mini", "gpt-4-turbo"]).optional(),
+  deepseekModel: z.enum(["deepseek-chat", "deepseek-coder", "deepseek-reasoner"]).optional(),
+  isActive: z.boolean().default(true),
+});
 
 declare module "express-session" {
   interface SessionData {
     userId: string;
   }
 }
-
-const ai = new GoogleGenAI({
-  apiKey: process.env.AI_INTEGRATIONS_GEMINI_API_KEY!,
-  httpOptions: {
-    apiVersion: "",
-    baseUrl: process.env.AI_INTEGRATIONS_GEMINI_BASE_URL,
-  },
-});
-
-// Token pricing for Gemini models (per 1K tokens) - approximations
-const TOKEN_PRICING: Record<string, { input: number; output: number }> = {
-  "gemini-2.5-flash": { input: 0.0001, output: 0.0004 },
-  "gemini-2.5-pro": { input: 0.0025, output: 0.01 },
-};
 
 // Helper function to check if organization has exceeded token cap
 // Reserves an estimated buffer for the incoming request to prevent overshoot
@@ -65,9 +60,8 @@ async function logAiUsageHelper(
     const completionTokens = usageMetadata.candidatesTokenCount || 0;
     const totalTokens = usageMetadata.totalTokenCount || promptTokens + completionTokens;
     
-    // Calculate estimated cost
-    const pricing = TOKEN_PRICING[model] || { input: 0.0001, output: 0.0004 };
-    const estimatedCost = (promptTokens / 1000 * pricing.input) + (completionTokens / 1000 * pricing.output);
+    // Calculate estimated cost using the service layer pricing
+    const estimatedCost = calculateCost(model, promptTokens, completionTokens);
     
     await storage.logAiUsage({
       organizationId: organizationId || null,
@@ -181,15 +175,11 @@ export async function registerRoutes(
         return res.status(400).json({ error: "No valid content found" });
       }
 
-      parts.unshift({ text: systemPrompt });
-
-      const model = "gemini-2.5-flash";
-      const response = await ai.models.generateContent({
-        model,
-        contents: [{ role: "user", parts }],
+      const { response, model } = await generateContent({
+        systemPrompt,
+        contents: parts,
       });
 
-      // Log AI usage
       await logAiUsageHelper("/api/gemini/generate-quiz", model, response, organizationId, userId, "quiz-generation");
 
       const responseText = response.text || "[]";
@@ -220,18 +210,15 @@ export async function registerRoutes(
         return res.status(400).json({ error: "Message is required" });
       }
 
-      const model = useThinkingMode ? "gemini-2.5-pro" : "gemini-2.5-flash";
-
       const prompt = systemInstruction 
         ? `${systemInstruction}\n\nUser: ${message}`
         : message;
 
-      const response = await ai.models.generateContent({
-        model,
-        contents: prompt,
+      const { response, model } = await generateContent({
+        contents: [{ text: prompt }],
+        thinking: useThinkingMode,
       });
 
-      // Log AI usage
       await logAiUsageHelper("/api/gemini/chatbot", model, response, organizationId, userId, message);
 
       res.json({ response: response.text || "I'm sorry, I couldn't generate a response." });
@@ -267,13 +254,10 @@ Note: This analysis is based on the video title and typical content patterns. Fo
 
 Format your response in a clear, educational manner suitable for a corporate learning management system.`;
 
-      const model = "gemini-2.5-flash";
-      const response = await ai.models.generateContent({
-        model,
-        contents: prompt,
+      const { response, model } = await generateContent({
+        contents: [{ text: prompt }],
       });
 
-      // Log AI usage
       await logAiUsageHelper("/api/gemini/analyze-video", model, response, organizationId, userId, videoTitle);
 
       res.json({ analysis: response.text || "Unable to analyze video." });
@@ -310,15 +294,11 @@ USER QUESTION: ${question}
 
 Provide a helpful, educational answer. If the question cannot be fully answered from the content, acknowledge this and provide relevant general information where appropriate.`;
 
-      parts.unshift({ text: systemPrompt });
-
-      const model = "gemini-2.5-flash";
-      const response = await ai.models.generateContent({
-        model,
-        contents: [{ role: "user", parts }],
+      const { response, model } = await generateContent({
+        systemPrompt,
+        contents: parts,
       });
 
-      // Log AI usage
       await logAiUsageHelper("/api/gemini/ask-question", model, response, organizationId, userId, question);
 
       res.json({ answer: response.text || "I couldn't find an answer to your question." });
@@ -370,15 +350,11 @@ USER'S QUESTION: ${question}
 
 Based on the course content provided, give a brief, helpful response.`;
 
-      parts.unshift({ text: systemPrompt });
-
-      const model = "gemini-2.5-flash";
-      const response = await ai.models.generateContent({
-        model,
-        contents: [{ role: "user", parts }],
+      const { response, model } = await generateContent({
+        systemPrompt,
+        contents: parts,
       });
 
-      // Log AI usage
       await logAiUsageHelper("/api/gemini/topic-chat", model, response, organizationId, userId, question);
 
       res.json({ answer: response.text || "I'm not sure about that. Could you rephrase?" });
@@ -439,13 +415,10 @@ Requirements:
 - Include practical tips and best practices
 - Output ONLY valid JSON, no other text`;
 
-      const model = "gemini-2.5-flash";
-      const response = await ai.models.generateContent({
-        model,
-        contents: genPrompt,
+      const { response, model } = await generateContent({
+        contents: [{ text: genPrompt }],
       });
 
-      // Log AI usage
       await logAiUsageHelper("/api/gemini/generate-course", model, response, organizationId, userId, prompt);
 
       const responseText = response.text || "{}";
@@ -515,15 +488,12 @@ Requirements:
 - Maintain logical flow between modules
 - Output ONLY valid JSON, no other text`;
 
-      parts.unshift({ text: systemPrompt });
-
-      const model = "gemini-2.5-pro";
-      const response = await ai.models.generateContent({
-        model,
-        contents: [{ role: "user", parts }],
+      const { response, model } = await generateContent({
+        systemPrompt,
+        contents: parts,
+        thinking: true,
       });
 
-      // Log AI usage
       await logAiUsageHelper("/api/gemini/generate-modules", model, response, organizationId, userId, title);
 
       const responseText = response.text || "{}";
@@ -591,13 +561,10 @@ Requirements:
 - Questions should test understanding, not just memorization
 - Output ONLY valid JSON array, no other text`;
 
-      const model = "gemini-2.5-flash";
-      const response = await ai.models.generateContent({
-        model,
-        contents: systemPrompt,
+      const { response, model } = await generateContent({
+        contents: [{ text: systemPrompt }],
       });
 
-      // Log AI usage
       await logAiUsageHelper("/api/gemini/generate-module-quiz", model, response, organizationId, userId, moduleTitle);
 
       const responseText = response.text || "[]";
@@ -2096,6 +2063,99 @@ Requirements:
     } catch (error: any) {
       console.error("Get organization users error:", error);
       res.status(500).json({ error: error.message || "Failed to get organization users" });
+    }
+  });
+
+  // ==================== AI SETTINGS MANAGEMENT (SuperAdmin only) ====================
+  
+  // Get AI settings
+  app.get("/api/admin/ai-settings", async (req, res) => {
+    try {
+      const userId = req.session.userId;
+      if (!userId) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+      
+      const user = await storage.getUser(userId);
+      if (!user || user.role !== "SuperAdmin") {
+        return res.status(403).json({ error: "Access denied. SuperAdmin only." });
+      }
+      
+      const settings = await storage.getAiSettings();
+      
+      // Return settings with API key status (not the actual keys)
+      const response = {
+        provider: settings?.provider || "gemini",
+        geminiModel: settings?.geminiModel || "gemini-2.5-flash",
+        openaiModel: settings?.openaiModel || "gpt-4o",
+        deepseekModel: settings?.deepseekModel || "deepseek-chat",
+        isActive: settings?.isActive ?? true,
+        updatedAt: settings?.updatedAt,
+        // Indicate which API keys are configured via environment
+        apiKeyStatus: {
+          gemini: !!process.env.AI_INTEGRATIONS_GEMINI_API_KEY || !!process.env.GEMINI_API_KEY,
+          openai: !!process.env.OPENAI_API_KEY,
+          deepseek: !!process.env.DEEPSEEK_API_KEY,
+        },
+      };
+      
+      res.json(response);
+    } catch (error: any) {
+      console.error("Get AI settings error:", error);
+      res.status(500).json({ error: error.message || "Failed to get AI settings" });
+    }
+  });
+  
+  // Update AI settings
+  app.put("/api/admin/ai-settings", async (req, res) => {
+    try {
+      const userId = req.session.userId;
+      if (!userId) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+      
+      const user = await storage.getUser(userId);
+      if (!user || user.role !== "SuperAdmin") {
+        return res.status(403).json({ error: "Access denied. SuperAdmin only." });
+      }
+      
+      const parseResult = aiSettingsSchema.safeParse(req.body);
+      if (!parseResult.success) {
+        return res.status(400).json({ 
+          error: "Invalid AI settings", 
+          details: parseResult.error.flatten().fieldErrors 
+        });
+      }
+      
+      const { provider, geminiModel, openaiModel, deepseekModel, isActive } = parseResult.data;
+      
+      const updated = await storage.updateAiSettings({
+        provider,
+        geminiModel,
+        openaiModel,
+        deepseekModel,
+        isActive,
+        updatedBy: userId,
+      });
+      
+      invalidateSettingsCache();
+      
+      res.json({
+        provider: updated.provider || "gemini",
+        geminiModel: updated.geminiModel || "gemini-2.5-flash",
+        openaiModel: updated.openaiModel || "gpt-4o",
+        deepseekModel: updated.deepseekModel || "deepseek-chat",
+        isActive: updated.isActive ?? true,
+        updatedAt: updated.updatedAt,
+        apiKeyStatus: {
+          gemini: !!process.env.AI_INTEGRATIONS_GEMINI_API_KEY || !!process.env.GEMINI_API_KEY,
+          openai: !!process.env.OPENAI_API_KEY,
+          deepseek: !!process.env.DEEPSEEK_API_KEY,
+        },
+      });
+    } catch (error: any) {
+      console.error("Update AI settings error:", error);
+      res.status(500).json({ error: error.message || "Failed to update AI settings" });
     }
   });
 
