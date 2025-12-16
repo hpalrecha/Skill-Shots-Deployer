@@ -1102,10 +1102,8 @@ Requirements:
       if (!user) {
         return res.status(404).json({ error: "User not found" });
       }
-      const bcrypt = await import("bcrypt");
-      const hashedPassword = await bcrypt.hash(newPassword, 10);
       const updatedUser = await storage.updateUser(req.params.id, {
-        password: hashedPassword,
+        password: newPassword,
       });
       if (!updatedUser) {
         return res.status(404).json({ error: "Failed to update password" });
