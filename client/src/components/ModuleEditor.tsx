@@ -1,5 +1,29 @@
 import { useState } from 'react';
 import { CourseModule, ContentBlock, ModuleVideo, ContentType } from '../types';
+
+// Helper to check if a content block has valid content for AI processing
+const hasBlockContent = (block: ContentBlock): boolean => {
+  if (!block.content) return false;
+  const content = block.content.trim();
+  if (content.length === 0) return false;
+  
+  // For paragraph blocks, any non-empty text is valid
+  if (block.type === ContentType.Paragraph) {
+    return true;
+  }
+  
+  // For document/image blocks, check if they have actual uploaded content (data URL) or a valid URL
+  if (block.type === ContentType.Document || block.type === ContentType.Image) {
+    return content.startsWith('data:') || content.startsWith('http://') || content.startsWith('https://');
+  }
+  
+  // For video blocks, check for valid URL
+  if (block.type === ContentType.Video) {
+    return content.startsWith('http://') || content.startsWith('https://');
+  }
+  
+  return content.length > 0;
+};
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -42,9 +66,7 @@ export default function ModuleEditor({
   const [error, setError] = useState<string | null>(null);
   const [expandedModules, setExpandedModules] = useState<string[]>([]);
 
-  const hasValidContent = contentBlocks.some(
-    block => block.content && block.content.trim().length > 0
-  );
+  const hasValidContent = contentBlocks.some(hasBlockContent);
 
   const generateModules = async () => {
     if (!hasValidContent) {
