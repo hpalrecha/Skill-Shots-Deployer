@@ -1878,7 +1878,7 @@ Requirements:
       const membership = await storage.getOrganizationMembership(userId, req.params.orgId);
       
       // Allow SuperAdmin or OrgAdmin of this org
-      if (!user || (user.role !== "SuperAdmin" && (!membership || membership.role !== "OrgAdmin"))) {
+      if (!user || (user.role !== "SuperAdmin" && user.role !== "OrgAdmin" && (!membership || (membership.role !== "admin" && membership.role !== "OrgAdmin")))) {
         return res.status(403).json({ error: "Access denied" });
       }
       
@@ -1918,7 +1918,7 @@ Requirements:
       const user = await storage.getUser(userId);
       const membership = await storage.getOrganizationMembership(userId, req.params.orgId);
       
-      if (!user || (user.role !== "SuperAdmin" && (!membership || membership.role !== "OrgAdmin"))) {
+      if (!user || (user.role !== "SuperAdmin" && user.role !== "OrgAdmin" && (!membership || (membership.role !== "admin" && membership.role !== "OrgAdmin")))) {
         return res.status(403).json({ error: "Access denied" });
       }
       
@@ -1994,7 +1994,7 @@ Requirements:
       const user = await storage.getUser(userId);
       const membership = await storage.getOrganizationMembership(userId, req.params.orgId);
       
-      if (!user || (user.role !== "SuperAdmin" && (!membership || membership.role !== "OrgAdmin"))) {
+      if (!user || (user.role !== "SuperAdmin" && user.role !== "OrgAdmin" && (!membership || (membership.role !== "admin" && membership.role !== "OrgAdmin")))) {
         return res.status(403).json({ error: "Access denied" });
       }
       
@@ -2023,7 +2023,7 @@ Requirements:
       const user = await storage.getUser(userId);
       const membership = await storage.getOrganizationMembership(userId, req.params.orgId);
       
-      if (!user || (user.role !== "SuperAdmin" && (!membership || membership.role !== "OrgAdmin"))) {
+      if (!user || (user.role !== "SuperAdmin" && user.role !== "OrgAdmin" && (!membership || (membership.role !== "admin" && membership.role !== "OrgAdmin")))) {
         return res.status(403).json({ error: "Access denied" });
       }
       
@@ -2075,7 +2075,7 @@ Requirements:
       const user = await storage.getUser(userId);
       const membership = await storage.getOrganizationMembership(userId, req.params.orgId);
       
-      if (!user || (user.role !== "SuperAdmin" && (!membership || membership.role !== "OrgAdmin"))) {
+      if (!user || (user.role !== "SuperAdmin" && user.role !== "OrgAdmin" && (!membership || (membership.role !== "admin" && membership.role !== "OrgAdmin")))) {
         return res.status(403).json({ error: "Access denied" });
       }
       
