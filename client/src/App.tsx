@@ -4,12 +4,13 @@ import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 
 import { User, Topic, Group, LeaderboardEntry, TopicStatus } from "./types";
 
 import Login from "./components/Login";
 import LandingPage from "./pages/LandingPage";
-import Header from "./components/Header";
+import { AppSidebar } from "./components/AppSidebar";
 import Home from "./components/Home";
 import Dashboard from "./components/Dashboard";
 import TopicSwiperView from "./components/TopicSwiperView";
@@ -455,12 +456,6 @@ function App() {
 
   const accessibleTopics = getAccessibleTopics();
 
-  // Determine current route context
-  const isAdminRoute = location === '/admin';
-  const isCreatorRoute = location === '/creatorstudio';
-  const isSuperAdminRoute = location === '/superadmin';
-  const isAdminOrCreatorRoute = isAdminRoute || isCreatorRoute;
-
   // Role-based route access
   const canAccessSuperAdmin = currentUser.role === 'SuperAdmin';
   const canAccessOrgAdmin = currentUser.role === 'OrgAdmin';
@@ -493,15 +488,22 @@ function App() {
     );
   };
 
+  const sidebarStyle = {
+    "--sidebar-width": "16rem",
+    "--sidebar-width-icon": "3rem",
+  };
+
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
-        <div className="min-h-screen bg-background">
-          <Header 
-            user={currentUser} 
-            onLogout={handleLogout}
-            currentRoute={location}
-          />
+        <SidebarProvider style={sidebarStyle as React.CSSProperties}>
+          <div className="flex h-screen w-full bg-background">
+            <AppSidebar user={currentUser} onLogout={handleLogout} />
+            <div className="flex flex-col flex-1 overflow-hidden">
+              <header className="flex items-center gap-2 p-2 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0 z-40">
+                <SidebarTrigger data-testid="button-sidebar-toggle" />
+              </header>
+              <main className="flex-1 overflow-auto">
 
           <Switch>
             {/* Topic Swiper View - Full screen overlay */}
@@ -512,9 +514,9 @@ function App() {
             {/* SuperAdmin Dashboard - SuperAdmin only */}
             <Route path="/superadmin">
               {canAccessSuperAdmin ? (
-                <main className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8 py-8">
+                <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8 py-8">
                   <SuperAdminDashboard currentUser={currentUser} />
-                </main>
+                </div>
               ) : (
                 <Redirect to="/" />
               )}
@@ -523,9 +525,9 @@ function App() {
             {/* Organization Admin Dashboard - OrgAdmin only */}
             <Route path="/orgadmin">
               {canAccessOrgAdmin ? (
-                <main className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8 py-8">
+                <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8 py-8">
                   <OrgAdminDashboard currentUser={currentUser} />
-                </main>
+                </div>
               ) : (
                 <Redirect to="/" />
               )}
@@ -534,7 +536,7 @@ function App() {
             {/* Admin Portal - Admin only */}
             <Route path="/admin">
               {canAccessAdmin ? (
-                <main className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8 py-8">
+                <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8 py-8">
                   {isLoadingData ? (
                     <div className="flex items-center justify-center py-20">
                       <div className="text-center">
@@ -561,7 +563,7 @@ function App() {
                       onDeleteCategory={handleDeleteCategory}
                     />
                   )}
-                </main>
+                </div>
               ) : (
                 <Redirect to="/" />
               )}
@@ -570,7 +572,7 @@ function App() {
             {/* Creator Studio - Creator and Admin */}
             <Route path="/creatorstudio">
               {canAccessCreator ? (
-                <main className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8 py-8">
+                <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8 py-8">
                   {isLoadingData ? (
                     <div className="flex items-center justify-center py-20">
                       <div className="text-center">
@@ -597,7 +599,7 @@ function App() {
                       onDeleteCategory={handleDeleteCategory}
                     />
                   )}
-                </main>
+                </div>
               ) : (
                 <Redirect to="/" />
               )}
@@ -605,7 +607,7 @@ function App() {
 
             {/* Courses - Only courses (non-SOPs) */}
             <Route path="/courses">
-              <main className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8 py-8">
+              <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8 py-8">
                 {isLoadingData ? (
                   <div className="flex items-center justify-center py-20">
                     <div className="text-center">
@@ -625,12 +627,12 @@ function App() {
                     lockMode={true}
                   />
                 )}
-              </main>
+              </div>
             </Route>
 
             {/* SOPs - Only SOPs */}
             <Route path="/sops">
-              <main className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8 py-8">
+              <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8 py-8">
                 {isLoadingData ? (
                   <div className="flex items-center justify-center py-20">
                     <div className="text-center">
@@ -650,12 +652,12 @@ function App() {
                     lockMode={true}
                   />
                 )}
-              </main>
+              </div>
             </Route>
 
             {/* Home - Default route for all users */}
             <Route path="/">
-              <main className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8 py-8">
+              <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8 py-8">
                 {isLoadingData ? (
                   <div className="flex items-center justify-center py-20">
                     <div className="text-center">
@@ -670,10 +672,13 @@ function App() {
                     leaderboard={leaderboard}
                   />
                 )}
-              </main>
+              </div>
             </Route>
-          </Switch>
-        </div>
+                </Switch>
+              </main>
+            </div>
+          </div>
+        </SidebarProvider>
 
         <Chatbot
           isOpen={isChatbotOpen}
