@@ -1221,7 +1221,35 @@ Requirements:
 
   app.post("/api/topics", async (req, res) => {
     try {
-      const topic = await storage.createTopic(req.body);
+      const userId = req.session.userId;
+      if (!userId) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+      
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(401).json({ error: "User not found" });
+      }
+      
+      // Set the authorId and organizationId from the logged-in user
+      const topicData = {
+        ...req.body,
+        authorId: userId,
+        organizationId: user.organizationId || null,
+      };
+      
+      const topic = await storage.createTopic(topicData);
+      
+      // Update organization's course count if applicable
+      if (user.organizationId) {
+        const license = await storage.getOrganizationLicense(user.organizationId);
+        if (license) {
+          await storage.updateOrganizationLicense(license.id, {
+            currentCourses: (license.currentCourses || 0) + 1,
+          });
+        }
+      }
+      
       res.status(201).json(topic);
     } catch (error: any) {
       console.error("Create topic error:", error);
@@ -1244,10 +1272,27 @@ Requirements:
 
   app.delete("/api/topics/:id", async (req, res) => {
     try {
+      // Get the topic first to know its organization
+      const topic = await storage.getTopic(req.params.id);
+      if (!topic) {
+        return res.status(404).json({ error: "Topic not found" });
+      }
+      
       const deleted = await storage.deleteTopic(req.params.id);
       if (!deleted) {
         return res.status(404).json({ error: "Topic not found" });
       }
+      
+      // Decrement organization's course count if applicable
+      if (topic.organizationId) {
+        const license = await storage.getOrganizationLicense(topic.organizationId);
+        if (license && license.currentCourses > 0) {
+          await storage.updateOrganizationLicense(license.id, {
+            currentCourses: license.currentCourses - 1,
+          });
+        }
+      }
+      
       res.json({ message: "Topic deleted" });
     } catch (error: any) {
       console.error("Delete topic error:", error);
