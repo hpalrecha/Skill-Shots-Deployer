@@ -783,7 +783,11 @@ export class DatabaseStorage implements IStorage {
   }
 
   async comparePassword(password: string, hash: string): Promise<boolean> {
-    return bcrypt.compare(password, hash);
+    // Handle PHP bcrypt $2y$ prefix - convert to $2a$ for Node.js compatibility
+    // $2y$ is PHP's bcrypt prefix, $2a$/$2b$ are Node.js bcrypt prefixes
+    // They are algorithmically identical, just different prefix markers
+    const normalizedHash = hash.replace(/^\$2y\$/, '$2a$');
+    return bcrypt.compare(password, normalizedHash);
   }
 
   // ==================== ORGANIZATION MANAGEMENT ====================
