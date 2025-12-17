@@ -1372,14 +1372,19 @@ export default function SuperAdminDashboard({ currentUser }: SuperAdminDashboard
 
                     <Separator />
 
-                    <div className="grid gap-4 md:grid-cols-3">
-                      <div className="space-y-2">
-                        <Label htmlFor="gemini-model">Gemini Model</Label>
+                    <div className="space-y-2">
+                      <Label htmlFor="model-select">
+                        {aiSettings.provider === "gemini" && "Gemini Model"}
+                        {aiSettings.provider === "openai" && "OpenAI Model"}
+                        {aiSettings.provider === "deepseek" && "DeepSeek Model"}
+                      </Label>
+                      
+                      {aiSettings.provider === "gemini" && (
                         <Select
                           value={aiSettings.geminiModel || "gemini-2.5-flash"}
                           onValueChange={(value) => setAiSettings(prev => ({ ...prev, geminiModel: value }))}
                         >
-                          <SelectTrigger id="gemini-model" data-testid="select-gemini-model">
+                          <SelectTrigger id="model-select" data-testid="select-gemini-model">
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
@@ -1388,21 +1393,14 @@ export default function SuperAdminDashboard({ currentUser }: SuperAdminDashboard
                             <SelectItem value="gemini-2.0-flash">Gemini 2.0 Flash</SelectItem>
                           </SelectContent>
                         </Select>
-                        <div className="flex items-center gap-2">
-                          <Key className="h-3 w-3 text-muted-foreground" />
-                          <span className={`text-xs ${aiSettings.apiKeyStatus?.gemini ? 'text-green-600' : 'text-amber-600'}`}>
-                            {aiSettings.apiKeyStatus?.gemini ? 'API key configured' : 'API key not set'}
-                          </span>
-                        </div>
-                      </div>
-
-                      <div className="space-y-2">
-                        <Label htmlFor="openai-model">OpenAI Model</Label>
+                      )}
+                      
+                      {aiSettings.provider === "openai" && (
                         <Select
                           value={aiSettings.openaiModel || "gpt-4o"}
                           onValueChange={(value) => setAiSettings(prev => ({ ...prev, openaiModel: value }))}
                         >
-                          <SelectTrigger id="openai-model" data-testid="select-openai-model">
+                          <SelectTrigger id="model-select" data-testid="select-openai-model">
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
@@ -1411,21 +1409,14 @@ export default function SuperAdminDashboard({ currentUser }: SuperAdminDashboard
                             <SelectItem value="gpt-4-turbo">GPT-4 Turbo</SelectItem>
                           </SelectContent>
                         </Select>
-                        <div className="flex items-center gap-2">
-                          <Key className="h-3 w-3 text-muted-foreground" />
-                          <span className={`text-xs ${aiSettings.apiKeyStatus?.openai ? 'text-green-600' : 'text-amber-600'}`}>
-                            {aiSettings.apiKeyStatus?.openai ? 'API key configured' : 'API key not set'}
-                          </span>
-                        </div>
-                      </div>
-
-                      <div className="space-y-2">
-                        <Label htmlFor="deepseek-model">DeepSeek Model</Label>
+                      )}
+                      
+                      {aiSettings.provider === "deepseek" && (
                         <Select
                           value={aiSettings.deepseekModel || "deepseek-chat"}
                           onValueChange={(value) => setAiSettings(prev => ({ ...prev, deepseekModel: value }))}
                         >
-                          <SelectTrigger id="deepseek-model" data-testid="select-deepseek-model">
+                          <SelectTrigger id="model-select" data-testid="select-deepseek-model">
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
@@ -1434,12 +1425,23 @@ export default function SuperAdminDashboard({ currentUser }: SuperAdminDashboard
                             <SelectItem value="deepseek-reasoner">DeepSeek Reasoner</SelectItem>
                           </SelectContent>
                         </Select>
-                        <div className="flex items-center gap-2">
-                          <Key className="h-3 w-3 text-muted-foreground" />
-                          <span className={`text-xs ${aiSettings.apiKeyStatus?.deepseek ? 'text-green-600' : 'text-amber-600'}`}>
-                            {aiSettings.apiKeyStatus?.deepseek ? 'API key configured' : 'API key not set'}
-                          </span>
-                        </div>
+                      )}
+                      
+                      <div className="flex items-center gap-2 mt-1">
+                        <Key className="h-3 w-3 text-muted-foreground" />
+                        <span className={`text-xs ${
+                          (aiSettings.provider === "gemini" && aiSettings.apiKeyStatus?.gemini) ||
+                          (aiSettings.provider === "openai" && aiSettings.apiKeyStatus?.openai) ||
+                          (aiSettings.provider === "deepseek" && aiSettings.apiKeyStatus?.deepseek)
+                            ? 'text-green-600' 
+                            : 'text-amber-600'
+                        }`}>
+                          {(aiSettings.provider === "gemini" && aiSettings.apiKeyStatus?.gemini) ||
+                           (aiSettings.provider === "openai" && aiSettings.apiKeyStatus?.openai) ||
+                           (aiSettings.provider === "deepseek" && aiSettings.apiKeyStatus?.deepseek)
+                            ? 'API key configured' 
+                            : 'API key not set - configure below'}
+                        </span>
                       </div>
                     </div>
 
@@ -1481,41 +1483,67 @@ export default function SuperAdminDashboard({ currentUser }: SuperAdminDashboard
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <Key className="h-5 w-5" />
-                    API Key Configuration
+                    API Key for {aiSettings.provider === "gemini" ? "Google Gemini" : aiSettings.provider === "openai" ? "OpenAI" : "DeepSeek"}
                   </CardTitle>
                   <CardDescription>
-                    API keys are managed through environment secrets for security. Configure them in the Secrets tab.
+                    Configure the API key for your selected provider in the Secrets tab.
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-4">
-                    <div className="p-4 bg-muted/50 rounded-md space-y-2">
-                      <h4 className="font-medium">Required Environment Variables</h4>
-                      <div className="grid gap-2 text-sm">
-                        <div className="flex items-center justify-between">
-                          <code className="bg-background px-2 py-1 rounded">GEMINI_API_KEY</code>
-                          <Badge variant={aiSettings.apiKeyStatus?.gemini ? "default" : "secondary"}>
-                            {aiSettings.apiKeyStatus?.gemini ? "Configured" : "Not Set"}
-                          </Badge>
+                    <div className="p-4 bg-muted/50 rounded-md">
+                      <div className="flex items-center justify-between gap-4">
+                        <div className="space-y-1">
+                          <code className="bg-background px-2 py-1 rounded text-sm">
+                            {aiSettings.provider === "gemini" && "GEMINI_API_KEY"}
+                            {aiSettings.provider === "openai" && "OPENAI_API_KEY"}
+                            {aiSettings.provider === "deepseek" && "DEEPSEEK_API_KEY"}
+                          </code>
+                          <p className="text-sm text-muted-foreground">
+                            {aiSettings.provider === "gemini" && "Get your API key from Google AI Studio"}
+                            {aiSettings.provider === "openai" && "Get your API key from OpenAI Dashboard"}
+                            {aiSettings.provider === "deepseek" && "Get your API key from DeepSeek Platform"}
+                          </p>
                         </div>
-                        <div className="flex items-center justify-between">
-                          <code className="bg-background px-2 py-1 rounded">OPENAI_API_KEY</code>
-                          <Badge variant={aiSettings.apiKeyStatus?.openai ? "default" : "secondary"}>
-                            {aiSettings.apiKeyStatus?.openai ? "Configured" : "Not Set"}
-                          </Badge>
-                        </div>
-                        <div className="flex items-center justify-between">
-                          <code className="bg-background px-2 py-1 rounded">DEEPSEEK_API_KEY</code>
-                          <Badge variant={aiSettings.apiKeyStatus?.deepseek ? "default" : "secondary"}>
-                            {aiSettings.apiKeyStatus?.deepseek ? "Configured" : "Not Set"}
-                          </Badge>
-                        </div>
+                        <Badge 
+                          variant={
+                            (aiSettings.provider === "gemini" && aiSettings.apiKeyStatus?.gemini) ||
+                            (aiSettings.provider === "openai" && aiSettings.apiKeyStatus?.openai) ||
+                            (aiSettings.provider === "deepseek" && aiSettings.apiKeyStatus?.deepseek)
+                              ? "default" 
+                              : "destructive"
+                          }
+                        >
+                          {(aiSettings.provider === "gemini" && aiSettings.apiKeyStatus?.gemini) ||
+                           (aiSettings.provider === "openai" && aiSettings.apiKeyStatus?.openai) ||
+                           (aiSettings.provider === "deepseek" && aiSettings.apiKeyStatus?.deepseek)
+                            ? "Configured" 
+                            : "Not Set"}
+                        </Badge>
                       </div>
                     </div>
-                    <p className="text-sm text-muted-foreground">
-                      To add or update API keys, go to the Secrets section in your deployment settings. 
-                      Changes take effect immediately without requiring a restart.
-                    </p>
+                    
+                    {!((aiSettings.provider === "gemini" && aiSettings.apiKeyStatus?.gemini) ||
+                       (aiSettings.provider === "openai" && aiSettings.apiKeyStatus?.openai) ||
+                       (aiSettings.provider === "deepseek" && aiSettings.apiKeyStatus?.deepseek)) && (
+                      <div className="p-3 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-md">
+                        <p className="text-sm text-amber-800 dark:text-amber-200">
+                          The selected provider's API key is not configured. AI features will not work until you add it in the Secrets tab.
+                        </p>
+                      </div>
+                    )}
+                    
+                    <div className="text-sm text-muted-foreground space-y-2">
+                      <p>
+                        <strong>How to configure:</strong>
+                      </p>
+                      <ol className="list-decimal list-inside space-y-1 ml-2">
+                        <li>Open the Secrets tab in your Replit workspace</li>
+                        <li>Add a new secret with the key name shown above</li>
+                        <li>Paste your API key as the value</li>
+                        <li>Changes take effect immediately</li>
+                      </ol>
+                    </div>
                   </div>
                 </CardContent>
               </Card>
