@@ -108,6 +108,23 @@ function App() {
 
   const handleLogin = (user: User) => {
     setCurrentUser(user);
+    
+    // Role-based redirect after login
+    switch (user.role) {
+      case 'SuperAdmin':
+        setLocation('/superadmin');
+        break;
+      case 'OrgAdmin':
+        setLocation('/orgadmin');
+        break;
+      case 'Creator':
+        setLocation('/creatorstudio');
+        break;
+      case 'Learner':
+      default:
+        setLocation('/');
+        break;
+    }
   };
 
   const handleLogout = async () => {
