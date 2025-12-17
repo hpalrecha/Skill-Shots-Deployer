@@ -1022,6 +1022,21 @@ Requirements:
 
   app.post("/api/groups", async (req, res) => {
     try {
+      const userId = req.session.userId;
+      if (!userId) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+      
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(401).json({ error: "User not found" });
+      }
+      
+      // Only OrgAdmin and SuperAdmin can create groups/departments
+      if (user.role !== 'OrgAdmin' && user.role !== 'SuperAdmin') {
+        return res.status(403).json({ error: "Only organization admins can create departments" });
+      }
+      
       const { name } = req.body;
       if (!name) {
         return res.status(400).json({ error: "Name is required" });
@@ -1369,6 +1384,21 @@ Requirements:
 
   app.post("/api/categories", async (req, res) => {
     try {
+      const userId = req.session.userId;
+      if (!userId) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+      
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(401).json({ error: "User not found" });
+      }
+      
+      // Only OrgAdmin and SuperAdmin can create categories
+      if (user.role !== 'OrgAdmin' && user.role !== 'SuperAdmin') {
+        return res.status(403).json({ error: "Only organization admins can create categories" });
+      }
+      
       const { name } = req.body;
       if (!name) {
         return res.status(400).json({ error: "Name is required" });

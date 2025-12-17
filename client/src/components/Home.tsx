@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import { useLocation } from 'wouter';
 import { Topic, User, LeaderboardEntry, TopicStatus } from '../types';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -15,6 +16,24 @@ interface HomeProps {
 
 export default function Home({ topics, currentUser, leaderboard }: HomeProps) {
   const [, setLocation] = useLocation();
+  const [organizationName, setOrganizationName] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchOrganization = async () => {
+      try {
+        const response = await fetch('/api/my-organization', { credentials: 'include' });
+        if (response.ok) {
+          const data = await response.json();
+          if (data.currentOrganization?.name) {
+            setOrganizationName(data.currentOrganization.name);
+          }
+        }
+      } catch (err) {
+        console.error('Error fetching organization:', err);
+      }
+    };
+    fetchOrganization();
+  }, []);
 
   const courses = topics.filter(t => !t.isSop);
   const sops = topics.filter(t => t.isSop);
@@ -35,6 +54,11 @@ export default function Home({ topics, currentUser, leaderboard }: HomeProps) {
         <h1 className="text-3xl font-bold text-foreground" data-testid="text-welcome">
           Welcome back, {currentUser.name}!
         </h1>
+        {organizationName && (
+          <p className="text-sm font-medium text-primary" data-testid="text-org-name">
+            {organizationName}
+          </p>
+        )}
         <p className="text-muted-foreground">
           Continue your learning journey and stay ahead of the curve.
         </p>

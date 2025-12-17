@@ -161,7 +161,7 @@ export default function CreatorDashboard({
       id: editTopicId || Date.now().toString(),
       title: topicTitle,
       category: topicCategory || 'General',
-      authorId: 'user-1',
+      authorId: currentUser?.id || 'user-1',
       readTime: topicReadTime,
       imageUrl: topicImage,
       status: TopicStatus.Pending,
@@ -194,9 +194,11 @@ export default function CreatorDashboard({
   };
 
   const updateBlock = (index: number, field: keyof ContentBlock, value: any) => {
-    const newBlocks = [...contentBlocks];
-    newBlocks[index] = { ...newBlocks[index], [field]: value };
-    setContentBlocks(newBlocks);
+    setContentBlocks(prevBlocks => {
+      const newBlocks = [...prevBlocks];
+      newBlocks[index] = { ...newBlocks[index], [field]: value };
+      return newBlocks;
+    });
   };
 
   const toggleUploadMode = (index: number) => {
@@ -258,6 +260,13 @@ export default function CreatorDashboard({
       setShowAiModal(false);
       setAiPrompt('');
       setAiResources([]);
+      
+      // Show the edit form so user can review and save the generated course
+      setIsEditingTopic(true);
+      setEditTopicId(null); // This is a new course, not editing existing
+      
+      // Show success message
+      alert("Course content generated successfully! Please review the content below and click 'Create Course' to save it.");
     } catch (error) {
       alert("Failed to generate course. Please try again.");
       console.error(error);
