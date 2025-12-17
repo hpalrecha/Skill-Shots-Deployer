@@ -2,7 +2,8 @@ import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { loginSchema, registerSchema } from "@shared/schema";
-import { generateContent, calculateCost, invalidateSettingsCache } from "./services/aiService";
+import { generateContent, calculateCost, invalidateSettingsCache, invalidateKeysCache } from "./services/aiService";
+import { encrypt } from "./services/crypto";
 import { z } from "zod";
 
 const aiSettingsSchema = z.object({
@@ -2084,6 +2085,7 @@ Requirements:
       const settings = await storage.getAiSettings();
       
       // Return settings with API key status (not the actual keys)
+      // Check both database-stored keys and environment variables
       const response = {
         provider: settings?.provider || "gemini",
         geminiModel: settings?.geminiModel || "gemini-2.5-flash",
@@ -2091,11 +2093,11 @@ Requirements:
         deepseekModel: settings?.deepseekModel || "deepseek-chat",
         isActive: settings?.isActive ?? true,
         updatedAt: settings?.updatedAt,
-        // Indicate which API keys are configured via environment
+        keysUpdatedAt: settings?.keysUpdatedAt,
         apiKeyStatus: {
-          gemini: !!process.env.AI_INTEGRATIONS_GEMINI_API_KEY || !!process.env.GEMINI_API_KEY,
-          openai: !!process.env.OPENAI_API_KEY,
-          deepseek: !!process.env.DEEPSEEK_API_KEY,
+          gemini: !!settings?.geminiApiKey || !!process.env.AI_INTEGRATIONS_GEMINI_API_KEY || !!process.env.GEMINI_API_KEY,
+          openai: !!settings?.openaiApiKey || !!process.env.OPENAI_API_KEY,
+          deepseek: !!settings?.deepseekApiKey || !!process.env.DEEPSEEK_API_KEY,
         },
       };
       
@@ -2147,15 +2149,68 @@ Requirements:
         deepseekModel: updated.deepseekModel || "deepseek-chat",
         isActive: updated.isActive ?? true,
         updatedAt: updated.updatedAt,
+        keysUpdatedAt: updated.keysUpdatedAt,
         apiKeyStatus: {
-          gemini: !!process.env.AI_INTEGRATIONS_GEMINI_API_KEY || !!process.env.GEMINI_API_KEY,
-          openai: !!process.env.OPENAI_API_KEY,
-          deepseek: !!process.env.DEEPSEEK_API_KEY,
+          gemini: !!updated.geminiApiKey || !!process.env.AI_INTEGRATIONS_GEMINI_API_KEY || !!process.env.GEMINI_API_KEY,
+          openai: !!updated.openaiApiKey || !!process.env.OPENAI_API_KEY,
+          deepseek: !!updated.deepseekApiKey || !!process.env.DEEPSEEK_API_KEY,
         },
       });
     } catch (error: any) {
       console.error("Update AI settings error:", error);
       res.status(500).json({ error: error.message || "Failed to update AI settings" });
+    }
+  });
+  
+  // Update API keys (SuperAdmin only)
+  app.put("/api/admin/ai-keys", async (req, res) => {
+    try {
+      const userId = req.session.userId;
+      if (!userId) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+      
+      const user = await storage.getUser(userId);
+      if (!user || user.role !== "SuperAdmin") {
+        return res.status(403).json({ error: "Access denied. SuperAdmin only." });
+      }
+      
+      const { geminiKey, openaiKey, deepseekKey } = req.body;
+      
+      const updateData: any = {
+        updatedBy: userId,
+        keysUpdatedAt: new Date(),
+      };
+      
+      // Only update keys that are provided (encrypt them)
+      if (geminiKey !== undefined) {
+        updateData.geminiApiKey = geminiKey ? encrypt(geminiKey) : null;
+      }
+      if (openaiKey !== undefined) {
+        updateData.openaiApiKey = openaiKey ? encrypt(openaiKey) : null;
+      }
+      if (deepseekKey !== undefined) {
+        updateData.deepseekApiKey = deepseekKey ? encrypt(deepseekKey) : null;
+      }
+      
+      const updated = await storage.updateAiSettings(updateData);
+      
+      // Invalidate caches
+      invalidateSettingsCache();
+      invalidateKeysCache();
+      
+      res.json({
+        success: true,
+        keysUpdatedAt: updated.keysUpdatedAt,
+        apiKeyStatus: {
+          gemini: !!updated.geminiApiKey || !!process.env.AI_INTEGRATIONS_GEMINI_API_KEY || !!process.env.GEMINI_API_KEY,
+          openai: !!updated.openaiApiKey || !!process.env.OPENAI_API_KEY,
+          deepseek: !!updated.deepseekApiKey || !!process.env.DEEPSEEK_API_KEY,
+        },
+      });
+    } catch (error: any) {
+      console.error("Update AI keys error:", error);
+      res.status(500).json({ error: error.message || "Failed to update API keys" });
     }
   });
 

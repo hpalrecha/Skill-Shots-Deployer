@@ -142,6 +142,8 @@ export default function SuperAdminDashboard({ currentUser }: SuperAdminDashboard
   });
   const [isAiSettingsLoading, setIsAiSettingsLoading] = useState(false);
   const [isSavingAiSettings, setIsSavingAiSettings] = useState(false);
+  const [apiKeyInput, setApiKeyInput] = useState("");
+  const [isSavingApiKey, setIsSavingApiKey] = useState(false);
   
   const { toast } = useToast();
 
@@ -275,6 +277,65 @@ export default function SuperAdminDashboard({ currentUser }: SuperAdminDashboard
       });
     } finally {
       setIsSavingAiSettings(false);
+    }
+  };
+  
+  const saveApiKey = async () => {
+    if (!apiKeyInput.trim()) {
+      toast({
+        title: "Error",
+        description: "Please enter an API key",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    setIsSavingApiKey(true);
+    try {
+      const keyData: Record<string, string> = {};
+      if (aiSettings.provider === "gemini") {
+        keyData.geminiKey = apiKeyInput;
+      } else if (aiSettings.provider === "openai") {
+        keyData.openaiKey = apiKeyInput;
+      } else if (aiSettings.provider === "deepseek") {
+        keyData.deepseekKey = apiKeyInput;
+      }
+      
+      const response = await fetch('/api/admin/ai-keys', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify(keyData),
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        setAiSettings(prev => ({
+          ...prev,
+          apiKeyStatus: data.apiKeyStatus,
+        }));
+        setApiKeyInput("");
+        toast({
+          title: "Success",
+          description: "API key saved securely",
+        });
+      } else {
+        const error = await response.json();
+        toast({
+          title: "Error",
+          description: error.error || "Failed to save API key",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error('Error saving API key:', error);
+      toast({
+        title: "Error",
+        description: "Failed to save API key",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSavingApiKey(false);
     }
   };
 
@@ -1486,41 +1547,63 @@ export default function SuperAdminDashboard({ currentUser }: SuperAdminDashboard
                     API Key for {aiSettings.provider === "gemini" ? "Google Gemini" : aiSettings.provider === "openai" ? "OpenAI" : "DeepSeek"}
                   </CardTitle>
                   <CardDescription>
-                    Configure the API key for your selected provider in the Secrets tab.
+                    Enter your API key to enable AI features. Keys are encrypted and stored securely.
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-4">
-                    <div className="p-4 bg-muted/50 rounded-md">
-                      <div className="flex items-center justify-between gap-4">
-                        <div className="space-y-1">
-                          <code className="bg-background px-2 py-1 rounded text-sm">
-                            {aiSettings.provider === "gemini" && "GEMINI_API_KEY"}
-                            {aiSettings.provider === "openai" && "OPENAI_API_KEY"}
-                            {aiSettings.provider === "deepseek" && "DEEPSEEK_API_KEY"}
-                          </code>
-                          <p className="text-sm text-muted-foreground">
-                            {aiSettings.provider === "gemini" && "Get your API key from Google AI Studio"}
-                            {aiSettings.provider === "openai" && "Get your API key from OpenAI Dashboard"}
-                            {aiSettings.provider === "deepseek" && "Get your API key from DeepSeek Platform"}
-                          </p>
-                        </div>
-                        <Badge 
-                          variant={
-                            (aiSettings.provider === "gemini" && aiSettings.apiKeyStatus?.gemini) ||
-                            (aiSettings.provider === "openai" && aiSettings.apiKeyStatus?.openai) ||
-                            (aiSettings.provider === "deepseek" && aiSettings.apiKeyStatus?.deepseek)
-                              ? "default" 
-                              : "destructive"
-                          }
+                    <div className="flex items-center gap-4">
+                      <Badge 
+                        variant={
+                          (aiSettings.provider === "gemini" && aiSettings.apiKeyStatus?.gemini) ||
+                          (aiSettings.provider === "openai" && aiSettings.apiKeyStatus?.openai) ||
+                          (aiSettings.provider === "deepseek" && aiSettings.apiKeyStatus?.deepseek)
+                            ? "default" 
+                            : "destructive"
+                        }
+                      >
+                        {(aiSettings.provider === "gemini" && aiSettings.apiKeyStatus?.gemini) ||
+                         (aiSettings.provider === "openai" && aiSettings.apiKeyStatus?.openai) ||
+                         (aiSettings.provider === "deepseek" && aiSettings.apiKeyStatus?.deepseek)
+                          ? "Key Configured" 
+                          : "Not Configured"}
+                      </Badge>
+                      <span className="text-sm text-muted-foreground">
+                        {aiSettings.provider === "gemini" && "Get your key from Google AI Studio"}
+                        {aiSettings.provider === "openai" && "Get your key from OpenAI Dashboard"}
+                        {aiSettings.provider === "deepseek" && "Get your key from DeepSeek Platform"}
+                      </span>
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label htmlFor="api-key-input">
+                        {(aiSettings.provider === "gemini" && aiSettings.apiKeyStatus?.gemini) ||
+                         (aiSettings.provider === "openai" && aiSettings.apiKeyStatus?.openai) ||
+                         (aiSettings.provider === "deepseek" && aiSettings.apiKeyStatus?.deepseek)
+                          ? "Update API Key (leave blank to keep current)" 
+                          : "Enter API Key"}
+                      </Label>
+                      <div className="flex gap-2">
+                        <Input
+                          id="api-key-input"
+                          type="password"
+                          placeholder={`Enter your ${aiSettings.provider === "gemini" ? "Gemini" : aiSettings.provider === "openai" ? "OpenAI" : "DeepSeek"} API key`}
+                          value={apiKeyInput}
+                          onChange={(e) => setApiKeyInput(e.target.value)}
+                          data-testid="input-api-key"
+                          className="flex-1"
+                        />
+                        <Button 
+                          onClick={saveApiKey}
+                          disabled={isSavingApiKey || !apiKeyInput.trim()}
+                          data-testid="button-save-api-key"
                         >
-                          {(aiSettings.provider === "gemini" && aiSettings.apiKeyStatus?.gemini) ||
-                           (aiSettings.provider === "openai" && aiSettings.apiKeyStatus?.openai) ||
-                           (aiSettings.provider === "deepseek" && aiSettings.apiKeyStatus?.deepseek)
-                            ? "Configured" 
-                            : "Not Set"}
-                        </Badge>
+                          {isSavingApiKey ? "Saving..." : "Save Key"}
+                        </Button>
                       </div>
+                      <p className="text-xs text-muted-foreground">
+                        Your API key is encrypted with AES-256 before storage and is never exposed.
+                      </p>
                     </div>
                     
                     {!((aiSettings.provider === "gemini" && aiSettings.apiKeyStatus?.gemini) ||
@@ -1528,22 +1611,10 @@ export default function SuperAdminDashboard({ currentUser }: SuperAdminDashboard
                        (aiSettings.provider === "deepseek" && aiSettings.apiKeyStatus?.deepseek)) && (
                       <div className="p-3 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-md">
                         <p className="text-sm text-amber-800 dark:text-amber-200">
-                          The selected provider's API key is not configured. AI features will not work until you add it in the Secrets tab.
+                          AI features will not work until you configure an API key for the selected provider.
                         </p>
                       </div>
                     )}
-                    
-                    <div className="text-sm text-muted-foreground space-y-2">
-                      <p>
-                        <strong>How to configure:</strong>
-                      </p>
-                      <ol className="list-decimal list-inside space-y-1 ml-2">
-                        <li>Open the Secrets tab in your Replit workspace</li>
-                        <li>Add a new secret with the key name shown above</li>
-                        <li>Paste your API key as the value</li>
-                        <li>Changes take effect immediately</li>
-                      </ol>
-                    </div>
                   </div>
                 </CardContent>
               </Card>

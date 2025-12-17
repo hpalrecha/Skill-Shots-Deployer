@@ -173,6 +173,11 @@ export const aiSettings = pgTable("ai_settings", {
   openaiModel: text("openai_model").default("gpt-4o"),
   deepseekModel: text("deepseek_model").default("deepseek-chat"),
   isActive: boolean("is_active").notNull().default(true),
+  // Encrypted API keys stored in database (encrypted with AES-256-GCM)
+  geminiApiKey: text("gemini_api_key"),
+  openaiApiKey: text("openai_api_key"),
+  deepseekApiKey: text("deepseek_api_key"),
+  keysUpdatedAt: timestamp("keys_updated_at"),
   updatedAt: timestamp("updated_at").defaultNow(),
   updatedBy: varchar("updated_by"),
 });

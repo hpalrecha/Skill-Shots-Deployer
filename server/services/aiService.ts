@@ -1,5 +1,6 @@
 import { GoogleGenAI } from "@google/genai";
 import { storage } from "../storage";
+import { decrypt } from "./crypto";
 
 type AIProvider = "gemini" | "openai" | "deepseek";
 
@@ -10,6 +11,16 @@ interface AISettings {
   deepseekModel: string;
   isActive: boolean;
 }
+
+interface CachedKeys {
+  gemini?: string;
+  openai?: string;
+  deepseek?: string;
+}
+
+let cachedApiKeys: CachedKeys | null = null;
+let keysLastFetched: number = 0;
+const KEYS_CACHE_TTL = 60000;
 
 interface GenerateOptions {
   systemPrompt?: string;
@@ -74,14 +85,80 @@ async function getAISettings(): Promise<AISettings> {
   return cachedSettings;
 }
 
-function getGeminiClient(): GoogleGenAI {
-  const apiKey = process.env.AI_INTEGRATIONS_GEMINI_API_KEY || process.env.GEMINI_API_KEY;
-  if (!apiKey) {
+async function getApiKeys(): Promise<CachedKeys> {
+  const now = Date.now();
+  if (cachedApiKeys && (now - keysLastFetched) < KEYS_CACHE_TTL) {
+    return cachedApiKeys;
+  }
+
+  try {
+    const settings = await storage.getAiSettings();
+    cachedApiKeys = {
+      gemini: undefined,
+      openai: undefined,
+      deepseek: undefined,
+    };
+    
+    // Try to get keys from database first (decrypt if stored)
+    if (settings?.geminiApiKey) {
+      try {
+        cachedApiKeys.gemini = decrypt(settings.geminiApiKey);
+      } catch (e) {
+        console.warn("Failed to decrypt Gemini API key from database");
+      }
+    }
+    if (settings?.openaiApiKey) {
+      try {
+        cachedApiKeys.openai = decrypt(settings.openaiApiKey);
+      } catch (e) {
+        console.warn("Failed to decrypt OpenAI API key from database");
+      }
+    }
+    if (settings?.deepseekApiKey) {
+      try {
+        cachedApiKeys.deepseek = decrypt(settings.deepseekApiKey);
+      } catch (e) {
+        console.warn("Failed to decrypt DeepSeek API key from database");
+      }
+    }
+    
+    // Fall back to environment variables
+    if (!cachedApiKeys.gemini) {
+      cachedApiKeys.gemini = process.env.AI_INTEGRATIONS_GEMINI_API_KEY || process.env.GEMINI_API_KEY;
+    }
+    if (!cachedApiKeys.openai) {
+      cachedApiKeys.openai = process.env.OPENAI_API_KEY;
+    }
+    if (!cachedApiKeys.deepseek) {
+      cachedApiKeys.deepseek = process.env.DEEPSEEK_API_KEY;
+    }
+    
+    keysLastFetched = now;
+  } catch (err) {
+    console.warn("Failed to fetch API keys, using env vars:", err);
+    cachedApiKeys = {
+      gemini: process.env.AI_INTEGRATIONS_GEMINI_API_KEY || process.env.GEMINI_API_KEY,
+      openai: process.env.OPENAI_API_KEY,
+      deepseek: process.env.DEEPSEEK_API_KEY,
+    };
+  }
+  
+  return cachedApiKeys;
+}
+
+export function invalidateKeysCache() {
+  cachedApiKeys = null;
+  keysLastFetched = 0;
+}
+
+async function getGeminiClient(): Promise<GoogleGenAI> {
+  const keys = await getApiKeys();
+  if (!keys.gemini) {
     throw new Error("Gemini API key not configured");
   }
   
   return new GoogleGenAI({
-    apiKey,
+    apiKey: keys.gemini,
     httpOptions: {
       apiVersion: "",
       baseUrl: process.env.AI_INTEGRATIONS_GEMINI_BASE_URL,
@@ -93,7 +170,7 @@ async function generateWithGemini(
   model: string,
   options: GenerateOptions
 ): Promise<AIResponse> {
-  const client = getGeminiClient();
+  const client = await getGeminiClient();
   
   const response = await client.models.generateContent({
     model,
@@ -115,10 +192,11 @@ async function generateWithOpenAI(
   model: string,
   options: GenerateOptions
 ): Promise<AIResponse> {
-  const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey) {
+  const keys = await getApiKeys();
+  if (!keys.openai) {
     throw new Error("OpenAI API key not configured");
   }
+  const apiKey = keys.openai;
 
   const messages: Array<{ role: string; content: any }> = [];
   
@@ -175,10 +253,11 @@ async function generateWithDeepSeek(
   model: string,
   options: GenerateOptions
 ): Promise<AIResponse> {
-  const apiKey = process.env.DEEPSEEK_API_KEY;
-  if (!apiKey) {
+  const keys = await getApiKeys();
+  if (!keys.deepseek) {
     throw new Error("DeepSeek API key not configured");
   }
+  const apiKey = keys.deepseek;
 
   const messages: Array<{ role: string; content: string }> = [];
   
