@@ -1,10 +1,10 @@
 import { useState, useEffect } from "react";
+import { useLocation } from "wouter";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Progress } from "@/components/ui/progress";
@@ -56,18 +56,21 @@ interface Organization {
   } | null;
 }
 
+type OrgAdminSection = 'overview' | 'members' | 'license' | 'ai-usage' | 'ai-settings';
+
 interface OrgAdminDashboardProps {
   currentUser: User;
+  section?: OrgAdminSection;
 }
 
-export default function OrgAdminDashboard({ currentUser }: OrgAdminDashboardProps) {
+export default function OrgAdminDashboard({ currentUser, section = 'overview' }: OrgAdminDashboardProps) {
+  const [, setLocation] = useLocation();
   const [organization, setOrganization] = useState<Organization | null>(null);
   const [members, setMembers] = useState<OrganizationMember[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isAddMemberDialogOpen, setIsAddMemberDialogOpen] = useState(false);
   const [isEditMemberDialogOpen, setIsEditMemberDialogOpen] = useState(false);
   const [selectedMember, setSelectedMember] = useState<OrganizationMember | null>(null);
-  const [activeTab, setActiveTab] = useState("overview");
   
   const { toast } = useToast();
 
@@ -106,6 +109,14 @@ export default function OrgAdminDashboard({ currentUser }: OrgAdminDashboardProp
   useEffect(() => {
     fetchOrganizationData();
   }, []);
+
+  useEffect(() => {
+    if (section === 'ai-usage') {
+      fetchAiUsage();
+    } else if (section === 'ai-settings') {
+      fetchAiSettings();
+    }
+  }, [section]);
 
   const fetchOrganizationData = async () => {
     setIsLoading(true);
@@ -417,31 +428,8 @@ export default function OrgAdminDashboard({ currentUser }: OrgAdminDashboardProp
         )}
       </div>
 
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="mb-4">
-          <TabsTrigger value="overview" data-testid="tab-overview">
-            <Building2 className="h-4 w-4 mr-2" />
-            Overview
-          </TabsTrigger>
-          <TabsTrigger value="members" data-testid="tab-members">
-            <Users className="h-4 w-4 mr-2" />
-            Members
-          </TabsTrigger>
-          <TabsTrigger value="license" data-testid="tab-license">
-            <CreditCard className="h-4 w-4 mr-2" />
-            License
-          </TabsTrigger>
-          <TabsTrigger value="ai-usage" data-testid="tab-ai-usage" onClick={() => fetchAiUsage()}>
-            <Cpu className="h-4 w-4 mr-2" />
-            AI Usage
-          </TabsTrigger>
-          <TabsTrigger value="ai-settings" data-testid="tab-ai-settings" onClick={() => fetchAiSettings()}>
-            <Key className="h-4 w-4 mr-2" />
-            AI Settings
-          </TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="overview">
+      {section === 'overview' && (
+        <>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
             <Card>
               <CardHeader className="pb-2">
@@ -507,24 +495,25 @@ export default function OrgAdminDashboard({ currentUser }: OrgAdminDashboardProp
               <CardDescription>Common administrative tasks</CardDescription>
             </CardHeader>
             <CardContent className="flex flex-wrap gap-4">
-              <Button onClick={() => { setActiveTab("members"); setIsAddMemberDialogOpen(true); }} data-testid="button-add-member-quick">
+              <Button onClick={() => { setLocation("/orgadmin/members"); setIsAddMemberDialogOpen(true); }} data-testid="button-add-member-quick">
                 <UserPlus className="h-4 w-4 mr-2" />
                 Add New Member
               </Button>
-              <Button variant="outline" onClick={() => setActiveTab("members")} data-testid="button-manage-members-quick">
+              <Button variant="outline" onClick={() => setLocation("/orgadmin/members")} data-testid="button-manage-members-quick">
                 <Users className="h-4 w-4 mr-2" />
                 Manage Members
               </Button>
-              <Button variant="outline" onClick={() => setActiveTab("license")} data-testid="button-view-license-quick">
+              <Button variant="outline" onClick={() => setLocation("/orgadmin/license")} data-testid="button-view-license-quick">
                 <CreditCard className="h-4 w-4 mr-2" />
                 View License
               </Button>
             </CardContent>
           </Card>
-        </TabsContent>
+        </>
+      )}
 
-        <TabsContent value="members">
-          <Card>
+      {section === 'members' && (
+        <Card>
             <CardHeader className="flex flex-row items-center justify-between gap-4">
               <div>
                 <CardTitle>Organization Members</CardTitle>
@@ -589,10 +578,10 @@ export default function OrgAdminDashboard({ currentUser }: OrgAdminDashboardProp
               </div>
             </CardContent>
           </Card>
-        </TabsContent>
+      )}
 
-        <TabsContent value="license">
-          {license ? (
+      {section === 'license' && (
+          license ? (
             <div className="space-y-6">
               <Card>
                 <CardHeader>
@@ -678,11 +667,11 @@ export default function OrgAdminDashboard({ currentUser }: OrgAdminDashboardProp
               <h2 className="text-xl font-bold mb-2">No Active License</h2>
               <p className="text-muted-foreground">Your organization does not have an active license. Please contact your administrator.</p>
             </Card>
-          )}
-        </TabsContent>
+          )
+      )}
 
-        <TabsContent value="ai-usage">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      {section === 'ai-usage' && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
@@ -780,9 +769,9 @@ export default function OrgAdminDashboard({ currentUser }: OrgAdminDashboardProp
               </CardContent>
             </Card>
           </div>
-        </TabsContent>
+      )}
 
-        <TabsContent value="ai-settings">
+      {section === 'ai-settings' && (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <Card>
               <CardHeader>
@@ -949,8 +938,7 @@ export default function OrgAdminDashboard({ currentUser }: OrgAdminDashboardProp
               </CardContent>
             </Card>
           </div>
-        </TabsContent>
-      </Tabs>
+      )}
 
       <Dialog open={isAddMemberDialogOpen} onOpenChange={setIsAddMemberDialogOpen}>
         <DialogContent>

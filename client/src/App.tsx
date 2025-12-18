@@ -566,11 +566,54 @@ function App() {
             </Route>
 
             {/* Organization Admin Dashboard - OrgAdmin only */}
-            <Route path="/orgadmin">
+            <Route path="/orgadmin/overview">
               {canAccessOrgAdmin ? (
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8 py-8">
-                  <OrgAdminDashboard currentUser={currentUser} />
+                  <OrgAdminDashboard currentUser={currentUser} section="overview" />
                 </div>
+              ) : (
+                <Redirect to="/" />
+              )}
+            </Route>
+            <Route path="/orgadmin/members">
+              {canAccessOrgAdmin ? (
+                <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8 py-8">
+                  <OrgAdminDashboard currentUser={currentUser} section="members" />
+                </div>
+              ) : (
+                <Redirect to="/" />
+              )}
+            </Route>
+            <Route path="/orgadmin/license">
+              {canAccessOrgAdmin ? (
+                <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8 py-8">
+                  <OrgAdminDashboard currentUser={currentUser} section="license" />
+                </div>
+              ) : (
+                <Redirect to="/" />
+              )}
+            </Route>
+            <Route path="/orgadmin/ai-usage">
+              {canAccessOrgAdmin ? (
+                <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8 py-8">
+                  <OrgAdminDashboard currentUser={currentUser} section="ai-usage" />
+                </div>
+              ) : (
+                <Redirect to="/" />
+              )}
+            </Route>
+            <Route path="/orgadmin/ai-settings">
+              {canAccessOrgAdmin ? (
+                <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8 py-8">
+                  <OrgAdminDashboard currentUser={currentUser} section="ai-settings" />
+                </div>
+              ) : (
+                <Redirect to="/" />
+              )}
+            </Route>
+            <Route path="/orgadmin">
+              {canAccessOrgAdmin ? (
+                <Redirect to="/orgadmin/overview" />
               ) : (
                 <Redirect to="/" />
               )}
