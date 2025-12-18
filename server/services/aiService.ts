@@ -166,24 +166,16 @@ async function getApiKeys(): Promise<CachedKeys> {
       }
     }
     
-    // Fall back to environment variables
-    if (!cachedApiKeys.gemini) {
-      cachedApiKeys.gemini = process.env.AI_INTEGRATIONS_GEMINI_API_KEY || process.env.GEMINI_API_KEY;
-    }
-    if (!cachedApiKeys.openai) {
-      cachedApiKeys.openai = process.env.OPENAI_API_KEY;
-    }
-    if (!cachedApiKeys.deepseek) {
-      cachedApiKeys.deepseek = process.env.DEEPSEEK_API_KEY;
-    }
+    // NO fallback to Replit's built-in keys - only use SuperAdmin-configured keys from database
+    // This ensures all AI calls go through the user's own API keys for proper tracking
     
     keysLastFetched = now;
   } catch (err) {
-    console.warn("Failed to fetch API keys, using env vars:", err);
+    console.warn("Failed to fetch API keys from database:", err);
     cachedApiKeys = {
-      gemini: process.env.AI_INTEGRATIONS_GEMINI_API_KEY || process.env.GEMINI_API_KEY,
-      openai: process.env.OPENAI_API_KEY,
-      deepseek: process.env.DEEPSEEK_API_KEY,
+      gemini: undefined,
+      openai: undefined,
+      deepseek: undefined,
     };
   }
   
@@ -204,17 +196,13 @@ async function getGeminiClient(customApiKey?: string): Promise<GoogleGenAI> {
   }
   
   if (!apiKey) {
-    throw new Error("Gemini API key not configured");
+    throw new Error("Gemini API key not configured. Please configure your API key in SuperAdmin → Settings → AI Configuration.");
   }
   
-  // If using custom key, don't use the Replit base URL
-  const httpOptions = customApiKey 
-    ? { apiVersion: "" }
-    : { apiVersion: "", baseUrl: process.env.AI_INTEGRATIONS_GEMINI_BASE_URL };
-  
+  // Always use direct Google API endpoint - never use Replit's proxy
+  // This ensures API calls show up in the user's Google AI Studio dashboard
   return new GoogleGenAI({
     apiKey,
-    httpOptions,
   });
 }
 
