@@ -9,6 +9,7 @@ export const generateQuiz = async (contentBlocks: ContentBlock[]): Promise<QuizD
   const response = await fetch('/api/gemini/generate-quiz', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
     body: JSON.stringify({ content: contentBlocks })
   });
 
@@ -26,6 +27,7 @@ export const getChatbotResponse = async (prompt: string, useThinkingMode: boolea
     const response = await fetch('/api/gemini/chatbot', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
       body: JSON.stringify({
         message: prompt,
         useThinkingMode,
@@ -48,6 +50,7 @@ export const analyzeVideoContent = async (videoTitle: string): Promise<string> =
     const response = await fetch('/api/gemini/analyze-video', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
       body: JSON.stringify({ videoTitle })
     });
 
@@ -65,6 +68,7 @@ export const askQuestionAboutTopic = async (contentBlocks: ContentBlock[], quest
   const response = await fetch('/api/gemini/ask-question', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
     body: JSON.stringify({
       content: contentBlocks,
       question
@@ -91,6 +95,7 @@ export const generateCourseFromPrompt = async (prompt: string, resources: Course
     const response = await fetch('/api/gemini/generate-course', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
       body: JSON.stringify({ prompt, resources })
     });
 

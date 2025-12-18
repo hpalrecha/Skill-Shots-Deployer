@@ -196,6 +196,7 @@ export default function VoiceConversation({
       const response = await fetch('/api/gemini/topic-chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({
           content: contentBlocks,
           topicTitle,

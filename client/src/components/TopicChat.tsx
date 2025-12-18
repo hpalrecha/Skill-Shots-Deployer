@@ -110,6 +110,7 @@ export default function TopicChat({ topicTitle, contentBlocks }: TopicChatProps)
       const response = await fetch('/api/gemini/topic-chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({
           content: contentBlocks,
           topicTitle,

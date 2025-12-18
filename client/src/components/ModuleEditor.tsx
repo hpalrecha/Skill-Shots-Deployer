@@ -81,6 +81,7 @@ export default function ModuleEditor({
       const response = await fetch('/api/gemini/generate-modules', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({
           content: contentBlocks,
           title: topicTitle

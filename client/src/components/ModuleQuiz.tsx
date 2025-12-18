@@ -41,6 +41,7 @@ export default function ModuleQuiz({ module, onComplete, onCancel }: ModuleQuizP
       const response = await fetch('/api/gemini/generate-module-quiz', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({
           moduleContent,
           moduleTitle: module.title
