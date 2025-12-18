@@ -765,7 +765,7 @@ export default function CreatorDashboard({
             </div>
           )}
 
-          {section === 'analytics' && isAdmin && (
+          {section === 'analytics' && (
             <div>
               <h2 className="text-2xl font-bold text-foreground mb-6">Platform Analytics</h2>
               <AnalyticsDashboard />
