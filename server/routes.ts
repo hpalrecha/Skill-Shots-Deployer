@@ -143,7 +143,19 @@ export async function registerRoutes(
   
   app.post("/api/gemini/generate-quiz", async (req, res) => {
     try {
-      const { content, organizationId, userId } = req.body;
+      const { content } = req.body;
+      
+      // Get user context from session for proper attribution
+      const sessionUserId = req.session.userId;
+      let organizationId: string | null = null;
+      let userId: string | null = sessionUserId || null;
+      
+      if (sessionUserId) {
+        const user = await storage.getUser(sessionUserId);
+        if (user?.organizationId) {
+          organizationId = user.organizationId;
+        }
+      }
       
       const capCheck = await checkTokenCapHelper(organizationId);
       if (!capCheck.allowed) {
@@ -211,7 +223,19 @@ export async function registerRoutes(
 
   app.post("/api/gemini/chatbot", async (req, res) => {
     try {
-      const { message, useThinkingMode, systemInstruction, organizationId, userId } = req.body;
+      const { message, useThinkingMode, systemInstruction } = req.body;
+      
+      // Get user context from session for proper attribution
+      const sessionUserId = req.session.userId;
+      let organizationId: string | null = null;
+      let userId: string | null = sessionUserId || null;
+      
+      if (sessionUserId) {
+        const user = await storage.getUser(sessionUserId);
+        if (user?.organizationId) {
+          organizationId = user.organizationId;
+        }
+      }
       
       const capCheck = await checkTokenCapHelper(organizationId);
       if (!capCheck.allowed) {
@@ -245,7 +269,19 @@ export async function registerRoutes(
 
   app.post("/api/gemini/analyze-video", async (req, res) => {
     try {
-      const { videoTitle, videoUrl, organizationId, userId } = req.body;
+      const { videoTitle, videoUrl } = req.body;
+      
+      // Get user context from session for proper attribution
+      const sessionUserId = req.session.userId;
+      let organizationId: string | null = null;
+      let userId: string | null = sessionUserId || null;
+      
+      if (sessionUserId) {
+        const user = await storage.getUser(sessionUserId);
+        if (user?.organizationId) {
+          organizationId = user.organizationId;
+        }
+      }
       
       const capCheck = await checkTokenCapHelper(organizationId);
       if (!capCheck.allowed) {
@@ -287,7 +323,19 @@ Format your response in a clear, educational manner suitable for a corporate lea
 
   app.post("/api/gemini/ask-question", async (req, res) => {
     try {
-      const { content, question, organizationId, userId } = req.body;
+      const { content, question } = req.body;
+      
+      // Get user context from session for proper attribution
+      const sessionUserId = req.session.userId;
+      let organizationId: string | null = null;
+      let userId: string | null = sessionUserId || null;
+      
+      if (sessionUserId) {
+        const user = await storage.getUser(sessionUserId);
+        if (user?.organizationId) {
+          organizationId = user.organizationId;
+        }
+      }
       
       const capCheck = await checkTokenCapHelper(organizationId);
       if (!capCheck.allowed) {
@@ -332,7 +380,19 @@ Provide a helpful, educational answer. If the question cannot be fully answered 
   // New chat-style endpoint with guardrails and brevity
   app.post("/api/gemini/topic-chat", async (req, res) => {
     try {
-      const { content, topicTitle, question, chatHistory, organizationId, userId } = req.body;
+      const { content, topicTitle, question, chatHistory } = req.body;
+      
+      // Get user context from session for proper attribution
+      const sessionUserId = req.session.userId;
+      let organizationId: string | null = null;
+      let userId: string | null = sessionUserId || null;
+      
+      if (sessionUserId) {
+        const user = await storage.getUser(sessionUserId);
+        if (user?.organizationId) {
+          organizationId = user.organizationId;
+        }
+      }
       
       const capCheck = await checkTokenCapHelper(organizationId);
       if (!capCheck.allowed) {
@@ -390,7 +450,19 @@ Based on the course content provided, give a brief, helpful response.`;
 
   app.post("/api/gemini/generate-course", async (req, res) => {
     try {
-      const { prompt, resources, organizationId, userId } = req.body;
+      const { prompt, resources } = req.body;
+      
+      // Get user context from session for proper attribution
+      const sessionUserId = req.session.userId;
+      let organizationId: string | null = null;
+      let userId: string | null = sessionUserId || null;
+      
+      if (sessionUserId) {
+        const user = await storage.getUser(sessionUserId);
+        if (user?.organizationId) {
+          organizationId = user.organizationId;
+        }
+      }
       
       const capCheck = await checkTokenCapHelper(organizationId, 15000);
       if (!capCheck.allowed) {
@@ -466,7 +538,19 @@ Requirements:
   // Generate course modules from content
   app.post("/api/gemini/generate-modules", async (req, res) => {
     try {
-      const { content, title, organizationId, userId } = req.body;
+      const { content, title } = req.body;
+      
+      // Get user context from session for proper attribution
+      const sessionUserId = req.session.userId;
+      let organizationId: string | null = null;
+      let userId: string | null = sessionUserId || null;
+      
+      if (sessionUserId) {
+        const user = await storage.getUser(sessionUserId);
+        if (user?.organizationId) {
+          organizationId = user.organizationId;
+        }
+      }
       
       const capCheck = await checkTokenCapHelper(organizationId, 20000);
       if (!capCheck.allowed) {
@@ -555,7 +639,19 @@ Requirements:
   // Generate quiz for a specific module
   app.post("/api/gemini/generate-module-quiz", async (req, res) => {
     try {
-      const { moduleContent, moduleTitle, organizationId, userId } = req.body;
+      const { moduleContent, moduleTitle } = req.body;
+      
+      // Get user context from session for proper attribution
+      const sessionUserId = req.session.userId;
+      let organizationId: string | null = null;
+      let userId: string | null = sessionUserId || null;
+      
+      if (sessionUserId) {
+        const user = await storage.getUser(sessionUserId);
+        if (user?.organizationId) {
+          organizationId = user.organizationId;
+        }
+      }
       
       const capCheck = await checkTokenCapHelper(organizationId);
       if (!capCheck.allowed) {
