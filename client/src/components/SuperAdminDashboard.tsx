@@ -48,6 +48,7 @@ interface LicensePlan {
   maxCourses: number;
   maxStorageMb: number;
   maxTokensPerMonth: number;
+  includesAi: boolean;
   features: any;
   priceMonthly: string | null;
   priceYearly: string | null;
@@ -1175,6 +1176,12 @@ export default function SuperAdminDashboard({ currentUser }: SuperAdminDashboard
                       <span className="text-muted-foreground">AI Tokens/Month</span>
                       <span className="font-medium">{plan.maxTokensPerMonth >= 100000000 ? 'Unlimited' : `${(plan.maxTokensPerMonth / 1000000).toFixed(1)}M`}</span>
                     </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">AI Included</span>
+                      <Badge variant={plan.includesAi ? "default" : "secondary"} className="text-xs">
+                        {plan.includesAi ? 'Yes' : 'Bring Your Own'}
+                      </Badge>
+                    </div>
                   </div>
                   <div className="pt-2 border-t">
                     <p className="text-xs text-muted-foreground mb-2">Features:</p>
@@ -1793,6 +1800,20 @@ export default function SuperAdminDashboard({ currentUser }: SuperAdminDashboard
                 </p>
               </div>
               <div className="flex items-center justify-between">
+                <div>
+                  <Label htmlFor="edit-plan-includes-ai">AI Included in Plan</Label>
+                  <p className="text-xs text-muted-foreground">
+                    If disabled, organizations must provide their own AI API key
+                  </p>
+                </div>
+                <Switch
+                  id="edit-plan-includes-ai"
+                  data-testid="switch-plan-includes-ai"
+                  checked={selectedPlan.includesAi ?? true}
+                  onCheckedChange={(checked) => setSelectedPlan(prev => prev ? { ...prev, includesAi: checked } : null)}
+                />
+              </div>
+              <div className="flex items-center justify-between">
                 <Label htmlFor="edit-plan-active">Active Status</Label>
                 <Switch
                   id="edit-plan-active"
@@ -1821,6 +1842,7 @@ export default function SuperAdminDashboard({ currentUser }: SuperAdminDashboard
                 maxCourses: selectedPlan.maxCourses,
                 maxStorageMb: selectedPlan.maxStorageMb,
                 maxTokensPerMonth: selectedPlan.maxTokensPerMonth,
+                includesAi: selectedPlan.includesAi ?? true,
                 isActive: selectedPlan.isActive,
               })}
               data-testid="button-save-plan"
