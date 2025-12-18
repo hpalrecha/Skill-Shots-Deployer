@@ -282,27 +282,51 @@ export default function CreatorDashboard({
     }
   };
 
-  const handleSaveUser = (e: React.FormEvent) => {
+  const [isCreatingUserLoading, setIsCreatingUserLoading] = useState(false);
+
+  const handleSaveUser = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newUserName || !newUserEmail) return;
 
-    const newUser: User = {
-      id: Date.now().toString(),
-      name: newUserName,
-      email: newUserEmail,
-      role: newUserRole,
-      groupIds: newUserGroups,
-      password: 'password123'
-    };
+    setIsCreatingUserLoading(true);
+    try {
+      // Generate a temporary password
+      const tempPassword = Math.random().toString(36).slice(-8);
+      
+      const response = await fetch('/api/users', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          name: newUserName,
+          email: newUserEmail,
+          password: tempPassword,
+          role: newUserRole,
+          groupIds: newUserGroups,
+        }),
+      });
 
-    onAddUser(newUser);
-    alert(`User Created! An email would be sent to ${newUserEmail} with their temporary password.`);
-
-    setNewUserName('');
-    setNewUserEmail('');
-    setNewUserRole(UserRole.Learner);
-    setNewUserGroups([]);
-    setIsCreatingUser(false);
+      if (response.ok) {
+        const createdUser = await response.json();
+        // Call onAddUser to update the local state
+        onAddUser(createdUser);
+        alert(`User Created! An email would be sent to ${newUserEmail} with their temporary password.`);
+        
+        setNewUserName('');
+        setNewUserEmail('');
+        setNewUserRole(UserRole.Learner);
+        setNewUserGroups([]);
+        setIsCreatingUser(false);
+      } else {
+        const error = await response.json();
+        alert(error.error || 'Failed to create user');
+      }
+    } catch (error) {
+      alert('Failed to create user. Please try again.');
+      console.error(error);
+    } finally {
+      setIsCreatingUserLoading(false);
+    }
   };
 
   const handleUpdatePassword = async (userId: string) => {
@@ -712,10 +736,15 @@ export default function CreatorDashboard({
                     </div>
                   </div>
                   <div className="flex gap-2">
-                    <Button type="submit" data-testid="button-save-user">
-                      <CheckIcon className="h-4 w-4 mr-2" /> Create User
+                    <Button type="submit" disabled={isCreatingUserLoading} data-testid="button-save-user">
+                      {isCreatingUserLoading ? (
+                        <LoaderIcon className="h-4 w-4 mr-2 animate-spin" />
+                      ) : (
+                        <CheckIcon className="h-4 w-4 mr-2" />
+                      )}
+                      {isCreatingUserLoading ? 'Creating...' : 'Create User'}
                     </Button>
-                    <Button type="button" variant="outline" onClick={() => setIsCreatingUser(false)}>
+                    <Button type="button" variant="outline" onClick={() => setIsCreatingUser(false)} disabled={isCreatingUserLoading}>
                       Cancel
                     </Button>
                   </div>

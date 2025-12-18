@@ -1079,6 +1079,7 @@ Requirements:
 
   app.post("/api/users", async (req, res) => {
     try {
+      const userId = req.session.userId;
       const { name, email, password, role, groupIds } = req.body;
       if (!name || !email || !password) {
         return res.status(400).json({ error: "Name, email, and password are required" });
@@ -1087,6 +1088,16 @@ Requirements:
       if (existingUser) {
         return res.status(400).json({ error: "Email already exists" });
       }
+      
+      // Get the current user's organization to associate new user with it
+      let organizationId: string | undefined = undefined;
+      if (userId) {
+        const currentUser = await storage.getUser(userId);
+        if (currentUser?.organizationId) {
+          organizationId = currentUser.organizationId;
+        }
+      }
+      
       const bcrypt = await import("bcrypt");
       const hashedPassword = await bcrypt.hash(password, 10);
       const user = await storage.createUser({
@@ -1095,7 +1106,19 @@ Requirements:
         password: hashedPassword,
         role: role || "Learner",
         groupIds: groupIds || [],
+        organizationId,
       });
+      
+      // Also create organization membership if there's an organization
+      if (organizationId) {
+        await storage.createOrganizationMembership({
+          userId: user.id,
+          organizationId,
+          role: role || "Learner",
+          isActive: true,
+        });
+      }
+      
       res.status(201).json({
         id: user.id,
         name: user.name,
