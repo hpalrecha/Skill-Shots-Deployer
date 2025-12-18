@@ -40,3 +40,8 @@ waitForPort = 5000
 
 [agent]
 integrations = ["javascript_gemini_ai_integrations:1.0.0"]
+
+[userenv]
+
+[userenv.shared]
+APP_URL = "https://5abb5e6e-402b-4409-b63e-d34f601714ba-00-3ojp1ovwk1b4o.spock.replit.dev"

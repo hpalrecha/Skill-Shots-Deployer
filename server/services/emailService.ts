@@ -13,6 +13,17 @@ const transporter = nodemailer.createTransport({
 const FROM_EMAIL = 'noreply@skillshots.in';
 const FROM_NAME = 'SkillShots';
 
+// Get the app URL - prioritize APP_URL env var, then detect Replit domain
+function getAppUrl(): string {
+  if (process.env.APP_URL) {
+    return process.env.APP_URL;
+  }
+  if (process.env.REPLIT_DEV_DOMAIN) {
+    return `https://${process.env.REPLIT_DEV_DOMAIN}`;
+  }
+  return 'https://skillshots.in';
+}
+
 export interface EmailOptions {
   to: string;
   subject: string;
@@ -42,7 +53,7 @@ export async function sendPasswordResetEmail(
   resetToken: string,
   userName: string
 ): Promise<boolean> {
-  const resetUrl = `${process.env.APP_URL || 'https://skillshots.in'}/reset-password?token=${resetToken}`;
+  const resetUrl = `${getAppUrl()}/reset-password?token=${resetToken}`;
   
   const html = `
     <!DOCTYPE html>
@@ -114,7 +125,7 @@ export async function sendWelcomeEmail(
   temporaryPassword: string,
   organizationName?: string
 ): Promise<boolean> {
-  const loginUrl = `${process.env.APP_URL || 'https://skillshots.in'}/login`;
+  const loginUrl = `${getAppUrl()}/login`;
   
   const html = `
     <!DOCTYPE html>
