@@ -607,6 +607,68 @@ export default function CreatorDashboard({
                   ))}
                 </div>
 
+                {/* Course Assets Section - Show all uploaded files */}
+                {contentBlocks.some(b => 
+                  (b.type === ContentType.Document || b.type === ContentType.Image || b.type === ContentType.Video) && 
+                  b.content?.startsWith('data:')
+                ) && (
+                  <div className="space-y-4">
+                    <Label className="text-lg font-semibold flex items-center gap-2">
+                      <ClipboardListIcon className="h-5 w-5" />
+                      Course Assets
+                    </Label>
+                    <p className="text-sm text-muted-foreground">
+                      Uploaded files included in this course. Learners can access and download these assets.
+                    </p>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                      {contentBlocks.map((block, index) => {
+                        if (!block.content?.startsWith('data:')) return null;
+                        const isImage = block.type === ContentType.Image;
+                        const isDocument = block.type === ContentType.Document;
+                        const isVideo = block.type === ContentType.Video;
+                        
+                        return (
+                          <Card key={index} className="p-3">
+                            <div className="flex items-start gap-3">
+                              <div className="flex-shrink-0 w-12 h-12 bg-muted rounded-md flex items-center justify-center">
+                                {isImage && (
+                                  <img 
+                                    src={block.content} 
+                                    alt={block.title || 'Image'} 
+                                    className="w-12 h-12 object-cover rounded-md"
+                                  />
+                                )}
+                                {isDocument && <FileTextIcon className="h-6 w-6 text-muted-foreground" />}
+                                {isVideo && <VideoIcon className="h-6 w-6 text-muted-foreground" />}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className="font-medium text-sm truncate">{block.title || `${block.type} ${index + 1}`}</p>
+                                <Badge variant="outline" className="text-xs mt-1">
+                                  {block.type}
+                                </Badge>
+                              </div>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => {
+                                  const link = document.createElement('a');
+                                  link.href = block.content;
+                                  link.download = block.title || `asset-${index + 1}`;
+                                  link.click();
+                                }}
+                                title="Download"
+                              >
+                                <UploadIcon className="h-4 w-4 rotate-180" />
+                              </Button>
+                            </div>
+                          </Card>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
                 <ModuleEditor
                   modules={courseModules}
                   contentBlocks={contentBlocks}
