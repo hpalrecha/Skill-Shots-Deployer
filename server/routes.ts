@@ -473,16 +473,43 @@ Based on the course content provided, give a brief, helpful response.`;
         return res.status(400).json({ error: "Prompt is required" });
       }
 
+      // Build multimodal parts from resources (including uploaded files)
+      const resourceParts: Array<{ text: string } | { inlineData: { mimeType: string; data: string } }> = [];
       let resourceInfo = "";
+      
       if (resources && resources.length > 0) {
-        resourceInfo = "\n\nResources provided:\n" + resources.map((r: any) => `- ${r.type}: ${r.url}`).join('\n');
+        for (const r of resources) {
+          if (r.isFile && r.fileData) {
+            // Handle uploaded file (base64 data)
+            try {
+              const [header, base64Data] = r.fileData.split(',');
+              const mimeType = header.split(':')[1].split(';')[0];
+              if (base64Data && mimeType) {
+                resourceParts.push({
+                  inlineData: {
+                    mimeType: mimeType,
+                    data: base64Data
+                  }
+                });
+                resourceParts.push({ text: `[Uploaded ${r.type}: ${r.fileName || 'file'}]` });
+              }
+            } catch (e) {
+              console.warn("Failed to parse uploaded file for AI context", e);
+              resourceInfo += `\n- ${r.type}: ${r.fileName || 'uploaded file'}`;
+            }
+          } else if (r.url) {
+            // Handle URL resources
+            resourceInfo += `\n- ${r.type}: ${r.url}`;
+          }
+        }
       }
 
       const genPrompt = `You are a course content creator for a corporate learning platform. Generate a comprehensive training course based on this request:
 
 TOPIC/REQUEST:
 ${prompt}
-${resourceInfo}
+${resourceInfo ? `\n\nResources provided:${resourceInfo}` : ''}
+${resourceParts.length > 0 ? '\n\nAnalyze the attached files/documents to create course content based on their information.' : ''}
 
 Generate a complete course with the following JSON structure:
 {
@@ -509,10 +536,17 @@ Requirements:
 - Each paragraph should be 100-200 words
 - Make content professional and educational
 - Include practical tips and best practices
+- If documents/files are provided, extract and incorporate key information from them
 - Output ONLY valid JSON, no other text`;
 
+      // Combine prompt with any uploaded file parts
+      const contentParts: Array<{ text: string } | { inlineData: { mimeType: string; data: string } }> = [
+        { text: genPrompt },
+        ...resourceParts
+      ];
+
       const { response, model, usedOrgKey } = await generateContent({
-        contents: [{ text: genPrompt }],
+        contents: contentParts,
         organizationId: organizationId || undefined,
       });
 

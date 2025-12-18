@@ -3,6 +3,9 @@ import { QuizData, ContentBlock, ContentType } from '../types';
 export interface CourseResource {
   type: ContentType;
   url: string;
+  fileName?: string;
+  fileData?: string; // base64 encoded file data
+  isFile?: boolean;
 }
 
 export const generateQuiz = async (contentBlocks: ContentBlock[]): Promise<QuizData> => {

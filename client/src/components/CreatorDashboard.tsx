@@ -72,8 +72,10 @@ export default function CreatorDashboard({
   const [aiPrompt, setAiPrompt] = useState('');
   const [aiResources, setAiResources] = useState<CourseResource[]>([]);
   const [newResourceUrl, setNewResourceUrl] = useState('');
-  const [newResourceType, setNewResourceType] = useState<ContentType>(ContentType.Video);
+  const [newResourceType, setNewResourceType] = useState<ContentType>(ContentType.Document);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [aiResourceUploadMode, setAiResourceUploadMode] = useState<'url' | 'file'>('file');
+  const [aiResourceUploading, setAiResourceUploading] = useState(false);
 
   const [isCreatingUser, setIsCreatingUser] = useState(false);
   const [newUserName, setNewUserName] = useState('');
@@ -235,8 +237,30 @@ export default function CreatorDashboard({
 
   const addAiResource = () => {
     if (!newResourceUrl) return;
-    setAiResources([...aiResources, { type: newResourceType, url: newResourceUrl }]);
+    setAiResources([...aiResources, { type: newResourceType, url: newResourceUrl, isFile: false }]);
     setNewResourceUrl('');
+  };
+
+  const handleAiResourceFileUpload = (file: File | null) => {
+    if (!file) return;
+    setAiResourceUploading(true);
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const result = e.target?.result as string;
+      setAiResources([...aiResources, { 
+        type: newResourceType, 
+        url: '', 
+        fileName: file.name,
+        fileData: result,
+        isFile: true 
+      }]);
+      setAiResourceUploading(false);
+    };
+    reader.onerror = () => {
+      setAiResourceUploading(false);
+      alert('Failed to upload file. Please try again.');
+    };
+    reader.readAsDataURL(file);
   };
 
   const removeAiResource = (index: number) => {
@@ -923,39 +947,108 @@ export default function CreatorDashboard({
               />
             </div>
 
-            <div className="space-y-2">
+            <div className="space-y-3">
               <Label>Resources (Optional)</Label>
-              <div className="flex gap-2">
+              
+              <div className="flex gap-2 items-center">
                 <Select value={newResourceType} onValueChange={(v) => setNewResourceType(v as ContentType)}>
                   <SelectTrigger className="w-[100px]">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value={ContentType.Video}>Video</SelectItem>
                     <SelectItem value={ContentType.Document}>PDF</SelectItem>
                     <SelectItem value={ContentType.Image}>Image</SelectItem>
+                    <SelectItem value={ContentType.Video}>Video</SelectItem>
                   </SelectContent>
                 </Select>
-                <Input
-                  value={newResourceUrl}
-                  onChange={e => setNewResourceUrl(e.target.value)}
-                  placeholder="Resource URL..."
-                  className="flex-1"
-                />
-                <Button type="button" variant="outline" onClick={addAiResource}>
-                  <PlusIcon className="h-4 w-4" />
-                </Button>
+                
+                <div className="flex gap-1 bg-muted rounded-md p-1">
+                  <Button 
+                    type="button" 
+                    variant={aiResourceUploadMode === 'file' ? 'default' : 'ghost'} 
+                    size="sm"
+                    onClick={() => setAiResourceUploadMode('file')}
+                    className="gap-1"
+                  >
+                    <UploadIcon className="h-3 w-3" />
+                    Upload
+                  </Button>
+                  <Button 
+                    type="button" 
+                    variant={aiResourceUploadMode === 'url' ? 'default' : 'ghost'} 
+                    size="sm"
+                    onClick={() => setAiResourceUploadMode('url')}
+                    className="gap-1"
+                  >
+                    <LinkIcon className="h-3 w-3" />
+                    URL
+                  </Button>
+                </div>
               </div>
+
+              {aiResourceUploadMode === 'url' ? (
+                <div className="flex gap-2">
+                  <Input
+                    value={newResourceUrl}
+                    onChange={e => setNewResourceUrl(e.target.value)}
+                    placeholder={newResourceType === ContentType.Video ? "Video URL (YouTube, Vimeo, etc.)..." : "Resource URL..."}
+                    className="flex-1"
+                    data-testid="input-resource-url"
+                  />
+                  <Button type="button" variant="outline" onClick={addAiResource} disabled={!newResourceUrl}>
+                    <PlusIcon className="h-4 w-4" />
+                  </Button>
+                </div>
+              ) : (
+                <div className="flex gap-2">
+                  <label className="flex-1 flex items-center justify-center gap-2 border-2 border-dashed rounded-md p-3 cursor-pointer hover-elevate text-muted-foreground">
+                    {aiResourceUploading ? (
+                      <>
+                        <LoaderIcon className="h-4 w-4 animate-spin" />
+                        <span>Uploading...</span>
+                      </>
+                    ) : (
+                      <>
+                        <UploadIcon className="h-4 w-4" />
+                        <span>
+                          {newResourceType === ContentType.Document && "Choose PDF file"}
+                          {newResourceType === ContentType.Image && "Choose image file"}
+                          {newResourceType === ContentType.Video && "Choose video file"}
+                        </span>
+                      </>
+                    )}
+                    <input
+                      type="file"
+                      className="hidden"
+                      accept={
+                        newResourceType === ContentType.Document ? ".pdf" :
+                        newResourceType === ContentType.Image ? "image/*" :
+                        "video/*"
+                      }
+                      onChange={(e) => handleAiResourceFileUpload(e.target.files?.[0] || null)}
+                      disabled={aiResourceUploading}
+                      data-testid="input-resource-file"
+                    />
+                  </label>
+                </div>
+              )}
+
               {aiResources.length > 0 && (
-                <div className="flex gap-2 flex-wrap mt-2">
-                  {aiResources.map((res, idx) => (
-                    <Badge key={idx} variant="secondary" className="flex items-center gap-2">
-                      {res.type}: {res.url.substring(0, 30)}...
-                      <button onClick={() => removeAiResource(idx)}>
-                        <XIcon className="h-3 w-3" />
-                      </button>
-                    </Badge>
-                  ))}
+                <div className="space-y-2 mt-2">
+                  <Label className="text-xs text-muted-foreground">Added Resources ({aiResources.length})</Label>
+                  <div className="flex gap-2 flex-wrap">
+                    {aiResources.map((res, idx) => (
+                      <Badge key={idx} variant="secondary" className="flex items-center gap-2">
+                        {res.type === ContentType.Document && <FileTextIcon className="h-3 w-3" />}
+                        {res.type === ContentType.Image && <ImageIcon className="h-3 w-3" />}
+                        {res.type === ContentType.Video && <VideoIcon className="h-3 w-3" />}
+                        {res.isFile ? res.fileName : (res.url.length > 25 ? res.url.substring(0, 25) + '...' : res.url)}
+                        <button onClick={() => removeAiResource(idx)} className="hover:text-destructive">
+                          <XIcon className="h-3 w-3" />
+                        </button>
+                      </Badge>
+                    ))}
+                  </div>
                 </div>
               )}
             </div>
