@@ -113,7 +113,7 @@ function App() {
     // Role-based redirect after login
     switch (user.role) {
       case 'SuperAdmin':
-        setLocation('/superadmin');
+        setLocation('/superadmin/organizations');
         break;
       case 'OrgAdmin':
         setLocation('/orgadmin');
@@ -512,11 +512,54 @@ function App() {
             </Route>
 
             {/* SuperAdmin Dashboard - SuperAdmin only */}
-            <Route path="/superadmin">
+            <Route path="/superadmin/approvals">
               {canAccessSuperAdmin ? (
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8 py-8">
-                  <SuperAdminDashboard currentUser={currentUser} />
+                  <SuperAdminDashboard currentUser={currentUser} section="approvals" />
                 </div>
+              ) : (
+                <Redirect to="/" />
+              )}
+            </Route>
+            <Route path="/superadmin/organizations">
+              {canAccessSuperAdmin ? (
+                <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8 py-8">
+                  <SuperAdminDashboard currentUser={currentUser} section="organizations" />
+                </div>
+              ) : (
+                <Redirect to="/" />
+              )}
+            </Route>
+            <Route path="/superadmin/plans">
+              {canAccessSuperAdmin ? (
+                <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8 py-8">
+                  <SuperAdminDashboard currentUser={currentUser} section="plans" />
+                </div>
+              ) : (
+                <Redirect to="/" />
+              )}
+            </Route>
+            <Route path="/superadmin/ai-usage">
+              {canAccessSuperAdmin ? (
+                <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8 py-8">
+                  <SuperAdminDashboard currentUser={currentUser} section="ai-usage" />
+                </div>
+              ) : (
+                <Redirect to="/" />
+              )}
+            </Route>
+            <Route path="/superadmin/ai-settings">
+              {canAccessSuperAdmin ? (
+                <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8 py-8">
+                  <SuperAdminDashboard currentUser={currentUser} section="ai-settings" />
+                </div>
+              ) : (
+                <Redirect to="/" />
+              )}
+            </Route>
+            <Route path="/superadmin">
+              {canAccessSuperAdmin ? (
+                <Redirect to="/superadmin/organizations" />
               ) : (
                 <Redirect to="/" />
               )}

@@ -1,7 +1,7 @@
 import { useLocation } from 'wouter';
 import { User } from '../types';
 import { SkillShotsLogo, ClipboardListIcon, EditIcon, LogOutIcon, UserCircleIcon } from './icons';
-import { Home, BookOpen, Crown, Building2, Settings, Users } from 'lucide-react';
+import { Home, BookOpen, Crown, Building2, Settings, Users, CheckCircle, CreditCard, Cpu, Key } from 'lucide-react';
 import {
   Sidebar,
   SidebarContent,
@@ -51,13 +51,33 @@ export function AppSidebar({ user, onLogout }: AppSidebarProps) {
 
   const adminNavItems = [];
 
-  if (isSuperAdmin) {
-    adminNavItems.push({
-      title: 'Platform Admin',
-      url: '/superadmin',
-      icon: Crown,
-    });
-  }
+  const superAdminSubItems = isSuperAdmin ? [
+    {
+      title: 'Pending Approvals',
+      url: '/superadmin/approvals',
+      icon: CheckCircle,
+    },
+    {
+      title: 'Organizations',
+      url: '/superadmin/organizations',
+      icon: Building2,
+    },
+    {
+      title: 'License Plans',
+      url: '/superadmin/plans',
+      icon: CreditCard,
+    },
+    {
+      title: 'AI Usage',
+      url: '/superadmin/ai-usage',
+      icon: Cpu,
+    },
+    {
+      title: 'AI Settings',
+      url: '/superadmin/ai-settings',
+      icon: Key,
+    },
+  ] : [];
 
   if (isOrgAdmin) {
     adminNavItems.push({
@@ -110,6 +130,33 @@ export function AppSidebar({ user, onLogout }: AppSidebarProps) {
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
+
+        {superAdminSubItems.length > 0 && (
+          <>
+            <SidebarSeparator />
+            <SidebarGroup>
+              <SidebarGroupLabel>Platform Admin</SidebarGroupLabel>
+              <SidebarGroupContent>
+                <SidebarMenu>
+                  {superAdminSubItems.map((item) => (
+                    <SidebarMenuItem key={item.title}>
+                      <SidebarMenuButton 
+                        asChild 
+                        isActive={location === item.url}
+                        data-testid={`nav-${item.title.toLowerCase().replace(/\s+/g, '-')}`}
+                      >
+                        <a onClick={() => setLocation(item.url)} className="cursor-pointer">
+                          <item.icon className="h-4 w-4" />
+                          <span>{item.title}</span>
+                        </a>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  ))}
+                </SidebarMenu>
+              </SidebarGroupContent>
+            </SidebarGroup>
+          </>
+        )}
 
         {adminNavItems.length > 0 && (
           <>

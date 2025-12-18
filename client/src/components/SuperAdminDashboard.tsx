@@ -4,7 +4,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
@@ -96,9 +95,10 @@ interface SuperAdminDashboardProps {
     email: string;
     role: string;
   };
+  section?: 'approvals' | 'organizations' | 'plans' | 'ai-usage' | 'ai-settings';
 }
 
-export default function SuperAdminDashboard({ currentUser }: SuperAdminDashboardProps) {
+export default function SuperAdminDashboard({ currentUser, section = 'organizations' }: SuperAdminDashboardProps) {
   const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [licensePlans, setLicensePlans] = useState<LicensePlan[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -158,6 +158,14 @@ export default function SuperAdminDashboard({ currentUser }: SuperAdminDashboard
   useEffect(() => {
     fetchData();
   }, []);
+
+  useEffect(() => {
+    if (section === 'ai-usage') {
+      fetchAiUsage();
+    } else if (section === 'ai-settings') {
+      fetchAiSettings();
+    }
+  }, [section]);
 
   const fetchData = async () => {
     setIsLoading(true);
@@ -801,36 +809,9 @@ export default function SuperAdminDashboard({ currentUser }: SuperAdminDashboard
         </Card>
       </div>
 
-      <Tabs defaultValue={organizations.some(o => !o.isActive && o.settings?.pendingApproval) ? "pending" : "organizations"} className="space-y-4">
-        <TabsList>
-          <TabsTrigger value="pending" data-testid="tab-pending">
-            <Shield className="h-4 w-4 mr-2" />
-            Pending Approvals
-            {organizations.filter(o => !o.isActive && o.settings?.pendingApproval).length > 0 && (
-              <Badge variant="destructive" className="ml-2 text-xs">
-                {organizations.filter(o => !o.isActive && o.settings?.pendingApproval).length}
-              </Badge>
-            )}
-          </TabsTrigger>
-          <TabsTrigger value="organizations" data-testid="tab-organizations">
-            <Building2 className="h-4 w-4 mr-2" />
-            Organizations
-          </TabsTrigger>
-          <TabsTrigger value="plans" data-testid="tab-plans">
-            <CreditCard className="h-4 w-4 mr-2" />
-            License Plans
-          </TabsTrigger>
-          <TabsTrigger value="ai-usage" data-testid="tab-ai-usage" onClick={fetchAiUsage}>
-            <Brain className="h-4 w-4 mr-2" />
-            AI Usage
-          </TabsTrigger>
-          <TabsTrigger value="ai-settings" data-testid="tab-ai-settings" onClick={fetchAiSettings}>
-            <Settings className="h-4 w-4 mr-2" />
-            AI Settings
-          </TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="pending" className="space-y-4">
+      <div className="space-y-4">
+        {section === 'approvals' && (
+          <div className="space-y-4">
           {(() => {
             const pendingOrgs = organizations.filter(o => !o.isActive && o.settings?.pendingApproval);
             if (pendingOrgs.length === 0) {
@@ -941,9 +922,11 @@ export default function SuperAdminDashboard({ currentUser }: SuperAdminDashboard
               </div>
             );
           })()}
-        </TabsContent>
+          </div>
+        )}
 
-        <TabsContent value="organizations" className="space-y-4">
+        {section === 'organizations' && (
+          <div className="space-y-4">
           {organizations.length === 0 ? (
             <Card>
               <CardContent className="flex flex-col items-center justify-center py-12">
@@ -1135,9 +1118,11 @@ export default function SuperAdminDashboard({ currentUser }: SuperAdminDashboard
               ))}
             </div>
           )}
-        </TabsContent>
+          </div>
+        )}
 
-        <TabsContent value="plans" className="space-y-4">
+        {section === 'plans' && (
+          <div className="space-y-4">
           <div className="grid gap-4 md:grid-cols-3">
             {licensePlans.map(plan => (
               <Card key={plan.id} data-testid={`card-plan-${plan.id}`}>
@@ -1224,9 +1209,11 @@ export default function SuperAdminDashboard({ currentUser }: SuperAdminDashboard
               </Card>
             ))}
           </div>
-        </TabsContent>
+          </div>
+        )}
 
-        <TabsContent value="ai-usage" className="space-y-4">
+        {section === 'ai-usage' && (
+          <div className="space-y-4">
           {isAiUsageLoading ? (
             <Card>
               <CardContent className="flex items-center justify-center py-12">
@@ -1379,9 +1366,11 @@ export default function SuperAdminDashboard({ currentUser }: SuperAdminDashboard
               </Card>
             </>
           )}
-        </TabsContent>
+          </div>
+        )}
 
-        <TabsContent value="ai-settings" className="space-y-4">
+        {section === 'ai-settings' && (
+          <div className="space-y-4">
           {isAiSettingsLoading ? (
             <Card>
               <CardContent className="flex items-center justify-center py-12">
@@ -1629,8 +1618,9 @@ export default function SuperAdminDashboard({ currentUser }: SuperAdminDashboard
               </Card>
             </>
           )}
-        </TabsContent>
-      </Tabs>
+          </div>
+        )}
+      </div>
 
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
         <DialogContent>
