@@ -620,7 +620,7 @@ function App() {
             </Route>
 
             {/* Admin Portal - Admin only */}
-            <Route path="/admin">
+            <Route path="/admin/courses">
               {canAccessAdmin ? (
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8 py-8">
                   {isLoadingData ? (
@@ -637,6 +637,7 @@ function App() {
                       groups={groups}
                       categories={categories}
                       currentUser={currentUser}
+                      section="courses"
                       onAddTopic={handleAddTopic}
                       onUpdateTopic={handleUpdateTopic}
                       onDeleteTopic={handleDeleteTopic}
@@ -650,6 +651,118 @@ function App() {
                     />
                   )}
                 </div>
+              ) : (
+                <Redirect to="/" />
+              )}
+            </Route>
+            <Route path="/admin/users">
+              {canAccessAdmin ? (
+                <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8 py-8">
+                  {isLoadingData ? (
+                    <div className="flex items-center justify-center py-20">
+                      <div className="text-center">
+                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+                        <p className="text-muted-foreground">Loading content...</p>
+                      </div>
+                    </div>
+                  ) : (
+                    <CreatorDashboard
+                      topics={topics}
+                      users={users}
+                      groups={groups}
+                      categories={categories}
+                      currentUser={currentUser}
+                      section="users"
+                      onAddTopic={handleAddTopic}
+                      onUpdateTopic={handleUpdateTopic}
+                      onDeleteTopic={handleDeleteTopic}
+                      onAddUser={handleAddUser}
+                      onUpdateUser={handleUpdateUser}
+                      onDeleteUser={handleDeleteUser}
+                      onAddGroup={handleAddGroup}
+                      onDeleteGroup={handleDeleteGroup}
+                      onAddCategory={handleAddCategory}
+                      onDeleteCategory={handleDeleteCategory}
+                    />
+                  )}
+                </div>
+              ) : (
+                <Redirect to="/" />
+              )}
+            </Route>
+            <Route path="/admin/settings">
+              {canAccessAdmin ? (
+                <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8 py-8">
+                  {isLoadingData ? (
+                    <div className="flex items-center justify-center py-20">
+                      <div className="text-center">
+                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+                        <p className="text-muted-foreground">Loading content...</p>
+                      </div>
+                    </div>
+                  ) : (
+                    <CreatorDashboard
+                      topics={topics}
+                      users={users}
+                      groups={groups}
+                      categories={categories}
+                      currentUser={currentUser}
+                      section="settings"
+                      onAddTopic={handleAddTopic}
+                      onUpdateTopic={handleUpdateTopic}
+                      onDeleteTopic={handleDeleteTopic}
+                      onAddUser={handleAddUser}
+                      onUpdateUser={handleUpdateUser}
+                      onDeleteUser={handleDeleteUser}
+                      onAddGroup={handleAddGroup}
+                      onDeleteGroup={handleDeleteGroup}
+                      onAddCategory={handleAddCategory}
+                      onDeleteCategory={handleDeleteCategory}
+                    />
+                  )}
+                </div>
+              ) : (
+                <Redirect to="/" />
+              )}
+            </Route>
+            <Route path="/admin/analytics">
+              {canAccessAdmin ? (
+                <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8 py-8">
+                  {isLoadingData ? (
+                    <div className="flex items-center justify-center py-20">
+                      <div className="text-center">
+                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+                        <p className="text-muted-foreground">Loading content...</p>
+                      </div>
+                    </div>
+                  ) : (
+                    <CreatorDashboard
+                      topics={topics}
+                      users={users}
+                      groups={groups}
+                      categories={categories}
+                      currentUser={currentUser}
+                      section="analytics"
+                      onAddTopic={handleAddTopic}
+                      onUpdateTopic={handleUpdateTopic}
+                      onDeleteTopic={handleDeleteTopic}
+                      onAddUser={handleAddUser}
+                      onUpdateUser={handleUpdateUser}
+                      onDeleteUser={handleDeleteUser}
+                      onAddGroup={handleAddGroup}
+                      onDeleteGroup={handleDeleteGroup}
+                      onAddCategory={handleAddCategory}
+                      onDeleteCategory={handleDeleteCategory}
+                    />
+                  )}
+                </div>
+              ) : (
+                <Redirect to="/" />
+              )}
+            </Route>
+            <Route path="/admin">
+              {canAccessAdmin ? (
+                <Redirect to="/admin/courses" />
               ) : (
                 <Redirect to="/" />
               )}
