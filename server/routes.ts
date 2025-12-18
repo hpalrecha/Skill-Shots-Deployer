@@ -1886,6 +1886,47 @@ Requirements:
     }
   });
 
+  // OrgAdmin: Get AI usage for their own organization
+  app.get("/api/my-organization/ai-usage", async (req, res) => {
+    try {
+      const userId = req.session.userId;
+      if (!userId) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+      
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(401).json({ error: "User not found" });
+      }
+      
+      // Must be OrgAdmin
+      if (user.role !== "OrgAdmin") {
+        return res.status(403).json({ error: "Access denied. OrgAdmin required." });
+      }
+      
+      if (!user.organizationId) {
+        return res.status(400).json({ error: "No organization associated with user" });
+      }
+      
+      const orgSummary = await storage.getAiUsageSummaryByOrganization(user.organizationId);
+      
+      // Calculate organization totals
+      const orgTotals = {
+        totalRequests: orgSummary.totalRequests || 0,
+        totalTokens: orgSummary.totalTokens || 0,
+        totalPromptTokens: orgSummary.totalPromptTokens || 0,
+        totalCompletionTokens: orgSummary.totalCompletionTokens || 0,
+        estimatedCost: orgSummary.estimatedCost || 0,
+        endpointBreakdown: orgSummary.endpointBreakdown || [],
+      };
+      
+      res.json(orgTotals);
+    } catch (error: any) {
+      console.error("Get organization AI usage error:", error);
+      res.status(500).json({ error: error.message || "Failed to get organization AI usage" });
+    }
+  });
+
   // SuperAdmin: Get all AI usage logs
   app.get("/api/ai-usage/logs", async (req, res) => {
     try {
@@ -1975,7 +2016,7 @@ Requirements:
         });
       }
       
-      const { memberUserId, role, name, email, password } = req.body;
+      const { memberUserId, role, name, email, password, department } = req.body;
       
       let targetUserId = memberUserId;
       
@@ -1987,13 +2028,14 @@ Requirements:
           return res.status(409).json({ error: "A user with this email already exists" });
         }
         
-        // Create new user
+        // Create new user with department
         const newUser = await storage.createUser({
           name,
           email,
           password,
           role: role || "Learner",
           organizationId: req.params.orgId,
+          department: department || null,
           groupIds: [],
         });
         targetUserId = newUser.id;

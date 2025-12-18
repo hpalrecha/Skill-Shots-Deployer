@@ -71,6 +71,7 @@ export const users = pgTable("users", {
   password: text("password").notNull(),
   role: text("role").notNull().default("Learner"), // SuperAdmin, OrgAdmin, Creator, Learner
   organizationId: varchar("organization_id"), // null for SuperAdmin (platform-level)
+  department: text("department"), // Department within the organization
   groupIds: text("group_ids").array().default(sql`ARRAY[]::text[]`),
   createdAt: timestamp("created_at").defaultNow(),
 });

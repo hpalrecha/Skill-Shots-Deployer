@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
-import { Building2, Plus, Users, BookOpen, CreditCard, Settings, Trash2, Edit2, UserPlus, Mail, ShieldCheck, User as UserIcon } from "lucide-react";
+import { Building2, Plus, Users, BookOpen, CreditCard, Settings, Trash2, Edit2, UserPlus, Mail, ShieldCheck, User as UserIcon, Cpu, Zap, Activity } from "lucide-react";
 import { User, UserRole } from "../types";
 
 interface OrganizationMember {
@@ -75,7 +75,18 @@ export default function OrgAdminDashboard({ currentUser }: OrgAdminDashboardProp
     email: "",
     password: "",
     role: "Learner",
+    department: "",
   });
+
+  const [aiUsage, setAiUsage] = useState<{
+    totalRequests: number;
+    totalTokens: number;
+    totalPromptTokens: number;
+    totalCompletionTokens: number;
+    estimatedCost: number;
+    endpointBreakdown: { endpoint: string; requests: number; tokens: number }[];
+  } | null>(null);
+  const [isAiUsageLoading, setIsAiUsageLoading] = useState(false);
 
   useEffect(() => {
     fetchOrganizationData();
@@ -135,6 +146,21 @@ export default function OrgAdminDashboard({ currentUser }: OrgAdminDashboardProp
     }
   };
 
+  const fetchAiUsage = async () => {
+    setIsAiUsageLoading(true);
+    try {
+      const response = await fetch('/api/my-organization/ai-usage', { credentials: 'include' });
+      if (response.ok) {
+        const data = await response.json();
+        setAiUsage(data);
+      }
+    } catch (error) {
+      console.error('Error fetching AI usage:', error);
+    } finally {
+      setIsAiUsageLoading(false);
+    }
+  };
+
   const handleAddMember = async () => {
     if (!newMember.name || !newMember.email || !newMember.password) {
       toast({
@@ -157,6 +183,7 @@ export default function OrgAdminDashboard({ currentUser }: OrgAdminDashboardProp
           email: newMember.email,
           password: newMember.password,
           role: newMember.role,
+          department: newMember.department || null,
         }),
       });
 
@@ -166,7 +193,7 @@ export default function OrgAdminDashboard({ currentUser }: OrgAdminDashboardProp
           description: "Member added successfully",
         });
         setIsAddMemberDialogOpen(false);
-        setNewMember({ name: "", email: "", password: "", role: "Learner" });
+        setNewMember({ name: "", email: "", password: "", role: "Learner", department: "" });
         fetchOrganizationData();
       } else {
         const error = await response.json();
@@ -331,6 +358,10 @@ export default function OrgAdminDashboard({ currentUser }: OrgAdminDashboardProp
           <TabsTrigger value="license" data-testid="tab-license">
             <CreditCard className="h-4 w-4 mr-2" />
             License
+          </TabsTrigger>
+          <TabsTrigger value="ai-usage" data-testid="tab-ai-usage" onClick={() => fetchAiUsage()}>
+            <Cpu className="h-4 w-4 mr-2" />
+            AI Usage
           </TabsTrigger>
         </TabsList>
 
@@ -573,6 +604,107 @@ export default function OrgAdminDashboard({ currentUser }: OrgAdminDashboardProp
             </Card>
           )}
         </TabsContent>
+
+        <TabsContent value="ai-usage">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Activity className="h-5 w-5" />
+                  AI Usage Summary
+                </CardTitle>
+                <CardDescription>Token consumption and API calls for your organization</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {isAiUsageLoading ? (
+                  <div className="flex items-center justify-center py-8">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                  </div>
+                ) : aiUsage ? (
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="p-4 rounded-md bg-muted/50">
+                        <p className="text-sm text-muted-foreground">Total API Requests</p>
+                        <p className="text-2xl font-bold" data-testid="text-ai-requests">{aiUsage.totalRequests.toLocaleString()}</p>
+                      </div>
+                      <div className="p-4 rounded-md bg-muted/50">
+                        <p className="text-sm text-muted-foreground">Total Tokens Used</p>
+                        <p className="text-2xl font-bold" data-testid="text-ai-tokens">{aiUsage.totalTokens.toLocaleString()}</p>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="p-4 rounded-md bg-muted/50">
+                        <p className="text-sm text-muted-foreground">Prompt Tokens</p>
+                        <p className="text-xl font-semibold">{aiUsage.totalPromptTokens.toLocaleString()}</p>
+                      </div>
+                      <div className="p-4 rounded-md bg-muted/50">
+                        <p className="text-sm text-muted-foreground">Completion Tokens</p>
+                        <p className="text-xl font-semibold">{aiUsage.totalCompletionTokens.toLocaleString()}</p>
+                      </div>
+                    </div>
+                    <div className="p-4 rounded-md bg-primary/10 border border-primary/20">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-sm text-muted-foreground">Estimated Cost</p>
+                          <p className="text-2xl font-bold text-primary" data-testid="text-ai-cost">
+                            ₹{aiUsage.estimatedCost.toFixed(4)}
+                          </p>
+                        </div>
+                        <Zap className="h-8 w-8 text-primary/50" />
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <Cpu className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                    <p>No AI usage data available yet.</p>
+                    <p className="text-sm">AI usage will appear here once your organization starts using AI features.</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Cpu className="h-5 w-5" />
+                  Feature Breakdown
+                </CardTitle>
+                <CardDescription>Token usage by AI feature/endpoint</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {isAiUsageLoading ? (
+                  <div className="flex items-center justify-center py-8">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                  </div>
+                ) : aiUsage?.endpointBreakdown && aiUsage.endpointBreakdown.length > 0 ? (
+                  <div className="space-y-3">
+                    {aiUsage.endpointBreakdown.sort((a, b) => b.tokens - a.tokens).map((ep, idx) => {
+                      const percentage = aiUsage.totalTokens > 0 
+                        ? (ep.tokens / aiUsage.totalTokens) * 100 
+                        : 0;
+                      return (
+                        <div key={idx} className="space-y-1">
+                          <div className="flex justify-between text-sm">
+                            <span className="font-medium">{ep.endpoint.replace('/api/', '').replace('gemini/', '')}</span>
+                            <span className="text-muted-foreground">
+                              {ep.requests} calls / {ep.tokens.toLocaleString()} tokens
+                            </span>
+                          </div>
+                          <Progress value={percentage} className="h-2" />
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <p>No endpoint breakdown available.</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
       </Tabs>
 
       <Dialog open={isAddMemberDialogOpen} onOpenChange={setIsAddMemberDialogOpen}>
@@ -629,6 +761,17 @@ export default function OrgAdminDashboard({ currentUser }: OrgAdminDashboardProp
                   <SelectItem value="OrgAdmin">Admin</SelectItem>
                 </SelectContent>
               </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="member-department">Department</Label>
+              <Input
+                id="member-department"
+                placeholder="e.g., Engineering, Sales, HR"
+                value={newMember.department}
+                onChange={(e) => setNewMember({ ...newMember, department: e.target.value })}
+                data-testid="input-member-department"
+              />
+              <p className="text-xs text-muted-foreground">Optional - Assign this user to a department</p>
             </div>
           </div>
           <DialogFooter>
