@@ -652,18 +652,36 @@ export default function CreatorDashboard({
                       />
                     </div>
                   </div>
-                  <div className="space-y-2">
-                    <Label>Role</Label>
-                    <Select value={newUserRole} onValueChange={(v) => setNewUserRole(v as UserRole)}>
-                      <SelectTrigger data-testid="select-new-user-role">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value={UserRole.Learner}>Learner</SelectItem>
-                        <SelectItem value={UserRole.Creator}>Creator</SelectItem>
-                        <SelectItem value={UserRole.Admin}>Admin</SelectItem>
-                      </SelectContent>
-                    </Select>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>Role</Label>
+                      <Select value={newUserRole} onValueChange={(v) => setNewUserRole(v as UserRole)}>
+                        <SelectTrigger data-testid="select-new-user-role">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value={UserRole.Learner}>Learner</SelectItem>
+                          <SelectItem value={UserRole.Creator}>Creator</SelectItem>
+                          <SelectItem value={UserRole.Admin}>Admin</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Department</Label>
+                      <Select 
+                        value={newUserGroups[0] || ''} 
+                        onValueChange={(v) => setNewUserGroups(v ? [v] : [])}
+                      >
+                        <SelectTrigger data-testid="select-new-user-department">
+                          <SelectValue placeholder="Select department..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {groups.map(group => (
+                            <SelectItem key={group.id} value={group.id}>{group.name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
                   </div>
                   <div className="flex gap-2">
                     <Button type="submit" data-testid="button-save-user">
