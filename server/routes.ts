@@ -2,7 +2,7 @@ import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { loginSchema, registerSchema } from "@shared/schema";
-import { generateContent, calculateCost, invalidateSettingsCache, invalidateKeysCache } from "./services/aiService";
+import { generateContent, calculateCost, invalidateSettingsCache, invalidateKeysCache, invalidateOrgAiConfigCache } from "./services/aiService";
 import { encrypt } from "./services/crypto";
 import { z } from "zod";
 
@@ -22,12 +22,19 @@ declare module "express-session" {
 
 // Helper function to check if organization has exceeded token cap
 // Reserves an estimated buffer for the incoming request to prevent overshoot
-async function checkTokenCapHelper(organizationId?: string | null, estimatedTokens: number = 5000): Promise<{ allowed: boolean; message?: string; remaining?: number }> {
+// Skips check if organization uses their own AI key
+async function checkTokenCapHelper(organizationId?: string | null, estimatedTokens: number = 5000): Promise<{ allowed: boolean; message?: string; remaining?: number; usesOwnKey?: boolean }> {
   if (!organizationId) {
     return { allowed: true };
   }
   
   try {
+    // Check if organization uses their own AI key - no token limits apply
+    const org = await storage.getOrganization(organizationId);
+    if (org?.useOwnAiKey && org?.aiApiKey) {
+      return { allowed: true, usesOwnKey: true };
+    }
+    
     const capInfo = await storage.checkTokenCap(organizationId);
     // Check if current usage + estimated request tokens would exceed limit
     const wouldExceed = (capInfo.used + estimatedTokens) >= capInfo.limit;
@@ -176,12 +183,16 @@ export async function registerRoutes(
         return res.status(400).json({ error: "No valid content found" });
       }
 
-      const { response, model } = await generateContent({
+      const { response, model, usedOrgKey } = await generateContent({
         systemPrompt,
         contents: parts,
+        organizationId: organizationId || undefined,
       });
 
-      await logAiUsageHelper("/api/gemini/generate-quiz", model, response, organizationId, userId, "quiz-generation");
+      // Only log to system usage if using system key (not org's own key)
+      if (!usedOrgKey) {
+        await logAiUsageHelper("/api/gemini/generate-quiz", model, response, organizationId, userId, "quiz-generation");
+      }
 
       const responseText = response.text || "[]";
       
@@ -215,12 +226,15 @@ export async function registerRoutes(
         ? `${systemInstruction}\n\nUser: ${message}`
         : message;
 
-      const { response, model } = await generateContent({
+      const { response, model, usedOrgKey } = await generateContent({
         contents: [{ text: prompt }],
         thinking: useThinkingMode,
+        organizationId: organizationId || undefined,
       });
 
-      await logAiUsageHelper("/api/gemini/chatbot", model, response, organizationId, userId, message);
+      if (!usedOrgKey) {
+        await logAiUsageHelper("/api/gemini/chatbot", model, response, organizationId, userId, message);
+      }
 
       res.json({ response: response.text || "I'm sorry, I couldn't generate a response." });
     } catch (error: any) {
@@ -255,11 +269,14 @@ Note: This analysis is based on the video title and typical content patterns. Fo
 
 Format your response in a clear, educational manner suitable for a corporate learning management system.`;
 
-      const { response, model } = await generateContent({
+      const { response, model, usedOrgKey } = await generateContent({
         contents: [{ text: prompt }],
+        organizationId: organizationId || undefined,
       });
 
-      await logAiUsageHelper("/api/gemini/analyze-video", model, response, organizationId, userId, videoTitle);
+      if (!usedOrgKey) {
+        await logAiUsageHelper("/api/gemini/analyze-video", model, response, organizationId, userId, videoTitle);
+      }
 
       res.json({ analysis: response.text || "Unable to analyze video." });
     } catch (error: any) {
@@ -295,12 +312,15 @@ USER QUESTION: ${question}
 
 Provide a helpful, educational answer. If the question cannot be fully answered from the content, acknowledge this and provide relevant general information where appropriate.`;
 
-      const { response, model } = await generateContent({
+      const { response, model, usedOrgKey } = await generateContent({
         systemPrompt,
         contents: parts,
+        organizationId: organizationId || undefined,
       });
 
-      await logAiUsageHelper("/api/gemini/ask-question", model, response, organizationId, userId, question);
+      if (!usedOrgKey) {
+        await logAiUsageHelper("/api/gemini/ask-question", model, response, organizationId, userId, question);
+      }
 
       res.json({ answer: response.text || "I couldn't find an answer to your question." });
     } catch (error: any) {
@@ -351,12 +371,15 @@ USER'S QUESTION: ${question}
 
 Based on the course content provided, give a brief, helpful response.`;
 
-      const { response, model } = await generateContent({
+      const { response, model, usedOrgKey } = await generateContent({
         systemPrompt,
         contents: parts,
+        organizationId: organizationId || undefined,
       });
 
-      await logAiUsageHelper("/api/gemini/topic-chat", model, response, organizationId, userId, question);
+      if (!usedOrgKey) {
+        await logAiUsageHelper("/api/gemini/topic-chat", model, response, organizationId, userId, question);
+      }
 
       res.json({ answer: response.text || "I'm not sure about that. Could you rephrase?" });
     } catch (error: any) {
@@ -416,11 +439,14 @@ Requirements:
 - Include practical tips and best practices
 - Output ONLY valid JSON, no other text`;
 
-      const { response, model } = await generateContent({
+      const { response, model, usedOrgKey } = await generateContent({
         contents: [{ text: genPrompt }],
+        organizationId: organizationId || undefined,
       });
 
-      await logAiUsageHelper("/api/gemini/generate-course", model, response, organizationId, userId, prompt);
+      if (!usedOrgKey) {
+        await logAiUsageHelper("/api/gemini/generate-course", model, response, organizationId, userId, prompt);
+      }
 
       const responseText = response.text || "{}";
       
@@ -489,13 +515,16 @@ Requirements:
 - Maintain logical flow between modules
 - Output ONLY valid JSON, no other text`;
 
-      const { response, model } = await generateContent({
+      const { response, model, usedOrgKey } = await generateContent({
         systemPrompt,
         contents: parts,
         thinking: true,
+        organizationId: organizationId || undefined,
       });
 
-      await logAiUsageHelper("/api/gemini/generate-modules", model, response, organizationId, userId, title);
+      if (!usedOrgKey) {
+        await logAiUsageHelper("/api/gemini/generate-modules", model, response, organizationId, userId, title);
+      }
 
       const responseText = response.text || "{}";
       
@@ -562,11 +591,14 @@ Requirements:
 - Questions should test understanding, not just memorization
 - Output ONLY valid JSON array, no other text`;
 
-      const { response, model } = await generateContent({
+      const { response, model, usedOrgKey } = await generateContent({
         contents: [{ text: systemPrompt }],
+        organizationId: organizationId || undefined,
       });
 
-      await logAiUsageHelper("/api/gemini/generate-module-quiz", model, response, organizationId, userId, moduleTitle);
+      if (!usedOrgKey) {
+        await logAiUsageHelper("/api/gemini/generate-module-quiz", model, response, organizationId, userId, moduleTitle);
+      }
 
       const responseText = response.text || "[]";
       
@@ -1924,6 +1956,104 @@ Requirements:
     } catch (error: any) {
       console.error("Get organization AI usage error:", error);
       res.status(500).json({ error: error.message || "Failed to get organization AI usage" });
+    }
+  });
+
+  // OrgAdmin: Get AI settings for their organization
+  app.get("/api/my-organization/ai-settings", async (req, res) => {
+    try {
+      const userId = req.session.userId;
+      if (!userId) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+      
+      const user = await storage.getUser(userId);
+      if (!user || user.role !== "OrgAdmin") {
+        return res.status(403).json({ error: "Access denied. OrgAdmin required." });
+      }
+      
+      if (!user.organizationId) {
+        return res.status(400).json({ error: "No organization associated with user" });
+      }
+      
+      const org = await storage.getOrganization(user.organizationId);
+      if (!org) {
+        return res.status(404).json({ error: "Organization not found" });
+      }
+      
+      // Also get license to check if plan includes AI
+      const license = await storage.getOrganizationLicense(user.organizationId);
+      let planIncludesAi = true;
+      if (license) {
+        const plan = await storage.getLicensePlan(license.planId);
+        planIncludesAi = plan?.includesAi !== false;
+      }
+      
+      res.json({
+        useOwnAiKey: org.useOwnAiKey || false,
+        aiProvider: org.aiProvider || "gemini",
+        hasApiKey: !!org.aiApiKey,
+        planIncludesAi,
+      });
+    } catch (error: any) {
+      console.error("Get org AI settings error:", error);
+      res.status(500).json({ error: error.message || "Failed to get AI settings" });
+    }
+  });
+
+  // OrgAdmin: Update AI settings for their organization
+  app.put("/api/my-organization/ai-settings", async (req, res) => {
+    try {
+      const userId = req.session.userId;
+      if (!userId) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+      
+      const user = await storage.getUser(userId);
+      if (!user || user.role !== "OrgAdmin") {
+        return res.status(403).json({ error: "Access denied. OrgAdmin required." });
+      }
+      
+      if (!user.organizationId) {
+        return res.status(400).json({ error: "No organization associated with user" });
+      }
+      
+      const { useOwnAiKey, aiProvider, aiApiKey } = req.body;
+      
+      // Validate provider
+      const validProviders = ["gemini", "openai", "deepseek"];
+      if (aiProvider && !validProviders.includes(aiProvider)) {
+        return res.status(400).json({ error: "Invalid AI provider" });
+      }
+      
+      const updateData: any = {};
+      
+      if (typeof useOwnAiKey === "boolean") {
+        updateData.useOwnAiKey = useOwnAiKey;
+      }
+      
+      if (aiProvider) {
+        updateData.aiProvider = aiProvider;
+      }
+      
+      // If API key is provided, encrypt and store it
+      if (aiApiKey) {
+        updateData.aiApiKey = encrypt(aiApiKey);
+      } else if (aiApiKey === "") {
+        // Clear the API key if empty string provided
+        updateData.aiApiKey = null;
+      }
+      
+      await storage.updateOrganization(user.organizationId, updateData);
+      
+      // Invalidate the org AI config cache
+      const { invalidateOrgAiConfigCache } = await import("./services/aiService");
+      invalidateOrgAiConfigCache(user.organizationId);
+      
+      res.json({ success: true, message: "AI settings updated successfully" });
+    } catch (error: any) {
+      console.error("Update org AI settings error:", error);
+      res.status(500).json({ error: error.message || "Failed to update AI settings" });
     }
   });
 

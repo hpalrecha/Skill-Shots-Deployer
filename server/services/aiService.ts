@@ -4,6 +4,50 @@ import { decrypt } from "./crypto";
 
 type AIProvider = "gemini" | "openai" | "deepseek";
 
+// Organization AI settings for bring-your-own-key functionality
+interface OrgAIConfig {
+  useOwnAiKey: boolean;
+  aiProvider: AIProvider;
+  aiApiKey: string | null;
+}
+
+// Cache for organization AI configs (keyed by orgId)
+const orgAiConfigCache: Map<string, { config: OrgAIConfig; timestamp: number }> = new Map();
+const ORG_CONFIG_CACHE_TTL = 60000;
+
+async function getOrgAIConfig(organizationId: string): Promise<OrgAIConfig | null> {
+  const now = Date.now();
+  const cached = orgAiConfigCache.get(organizationId);
+  if (cached && (now - cached.timestamp) < ORG_CONFIG_CACHE_TTL) {
+    return cached.config;
+  }
+
+  try {
+    const org = await storage.getOrganization(organizationId);
+    if (!org) return null;
+    
+    const config: OrgAIConfig = {
+      useOwnAiKey: org.useOwnAiKey === true,
+      aiProvider: (org.aiProvider as AIProvider) || "gemini",
+      aiApiKey: org.aiApiKey || null,
+    };
+    
+    orgAiConfigCache.set(organizationId, { config, timestamp: now });
+    return config;
+  } catch (err) {
+    console.warn("Failed to fetch org AI config:", err);
+    return null;
+  }
+}
+
+export function invalidateOrgAiConfigCache(organizationId?: string) {
+  if (organizationId) {
+    orgAiConfigCache.delete(organizationId);
+  } else {
+    orgAiConfigCache.clear();
+  }
+}
+
 interface AISettings {
   provider: AIProvider;
   geminiModel: string;
@@ -151,26 +195,35 @@ export function invalidateKeysCache() {
   keysLastFetched = 0;
 }
 
-async function getGeminiClient(): Promise<GoogleGenAI> {
-  const keys = await getApiKeys();
-  if (!keys.gemini) {
+async function getGeminiClient(customApiKey?: string): Promise<GoogleGenAI> {
+  let apiKey = customApiKey;
+  
+  if (!apiKey) {
+    const keys = await getApiKeys();
+    apiKey = keys.gemini;
+  }
+  
+  if (!apiKey) {
     throw new Error("Gemini API key not configured");
   }
   
+  // If using custom key, don't use the Replit base URL
+  const httpOptions = customApiKey 
+    ? { apiVersion: "" }
+    : { apiVersion: "", baseUrl: process.env.AI_INTEGRATIONS_GEMINI_BASE_URL };
+  
   return new GoogleGenAI({
-    apiKey: keys.gemini,
-    httpOptions: {
-      apiVersion: "",
-      baseUrl: process.env.AI_INTEGRATIONS_GEMINI_BASE_URL,
-    },
+    apiKey,
+    httpOptions,
   });
 }
 
 async function generateWithGemini(
   model: string,
-  options: GenerateOptions
+  options: GenerateOptions,
+  customApiKey?: string
 ): Promise<AIResponse> {
-  const client = await getGeminiClient();
+  const client = await getGeminiClient(customApiKey);
   
   const response = await client.models.generateContent({
     model,
@@ -190,13 +243,17 @@ async function generateWithGemini(
 
 async function generateWithOpenAI(
   model: string,
-  options: GenerateOptions
+  options: GenerateOptions,
+  customApiKey?: string
 ): Promise<AIResponse> {
-  const keys = await getApiKeys();
-  if (!keys.openai) {
+  let apiKey = customApiKey;
+  if (!apiKey) {
+    const keys = await getApiKeys();
+    apiKey = keys.openai;
+  }
+  if (!apiKey) {
     throw new Error("OpenAI API key not configured");
   }
-  const apiKey = keys.openai;
 
   const messages: Array<{ role: string; content: any }> = [];
   
@@ -251,13 +308,17 @@ async function generateWithOpenAI(
 
 async function generateWithDeepSeek(
   model: string,
-  options: GenerateOptions
+  options: GenerateOptions,
+  customApiKey?: string
 ): Promise<AIResponse> {
-  const keys = await getApiKeys();
-  if (!keys.deepseek) {
+  let apiKey = customApiKey;
+  if (!apiKey) {
+    const keys = await getApiKeys();
+    apiKey = keys.deepseek;
+  }
+  if (!apiKey) {
     throw new Error("DeepSeek API key not configured");
   }
-  const apiKey = keys.deepseek;
 
   const messages: Array<{ role: string; content: string }> = [];
   
@@ -301,10 +362,11 @@ async function generateWithDeepSeek(
   };
 }
 
-export async function generateContent(options: GenerateOptions & { thinking?: boolean }): Promise<{
+export async function generateContent(options: GenerateOptions & { thinking?: boolean; organizationId?: string }): Promise<{
   response: AIResponse;
   model: string;
   provider: AIProvider;
+  usedOrgKey: boolean;
 }> {
   const settings = await getAISettings();
   
@@ -314,16 +376,34 @@ export async function generateContent(options: GenerateOptions & { thinking?: bo
 
   let model: string;
   let response: AIResponse;
+  let usedOrgKey = false;
+  let customApiKey: string | undefined;
+  let activeProvider: AIProvider = settings.provider;
 
-  switch (settings.provider) {
+  // Check if organization has their own AI key configured
+  if (options.organizationId) {
+    const orgConfig = await getOrgAIConfig(options.organizationId);
+    if (orgConfig && orgConfig.useOwnAiKey && orgConfig.aiApiKey) {
+      try {
+        // Decrypt the org's API key
+        customApiKey = decrypt(orgConfig.aiApiKey);
+        activeProvider = orgConfig.aiProvider;
+        usedOrgKey = true;
+      } catch (err) {
+        console.warn("Failed to decrypt org API key, falling back to system key:", err);
+      }
+    }
+  }
+
+  switch (activeProvider) {
     case "openai":
       model = settings.openaiModel || "gpt-4o";
-      response = await generateWithOpenAI(model, options);
+      response = await generateWithOpenAI(model, options, customApiKey);
       break;
     
     case "deepseek":
       model = settings.deepseekModel || "deepseek-chat";
-      response = await generateWithDeepSeek(model, options);
+      response = await generateWithDeepSeek(model, options, customApiKey);
       break;
     
     case "gemini":
@@ -333,11 +413,11 @@ export async function generateContent(options: GenerateOptions & { thinking?: bo
       } else {
         model = settings.geminiModel || "gemini-2.5-flash";
       }
-      response = await generateWithGemini(model, options);
+      response = await generateWithGemini(model, options, customApiKey);
       break;
   }
 
-  return { response, model, provider: settings.provider };
+  return { response, model, provider: activeProvider, usedOrgKey };
 }
 
 export function getPricing(model: string): { input: number; output: number } {

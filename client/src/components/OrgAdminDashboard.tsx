@@ -9,7 +9,8 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
-import { Building2, Plus, Users, BookOpen, CreditCard, Settings, Trash2, Edit2, UserPlus, Mail, ShieldCheck, User as UserIcon, Cpu, Zap, Activity } from "lucide-react";
+import { Building2, Plus, Users, BookOpen, CreditCard, Settings, Trash2, Edit2, UserPlus, Mail, ShieldCheck, User as UserIcon, Cpu, Zap, Activity, Key, Eye, EyeOff, Check, AlertTriangle } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
 import { User, UserRole } from "../types";
 
 interface OrganizationMember {
@@ -88,6 +89,20 @@ export default function OrgAdminDashboard({ currentUser }: OrgAdminDashboardProp
   } | null>(null);
   const [isAiUsageLoading, setIsAiUsageLoading] = useState(false);
 
+  // AI Settings state
+  const [aiSettings, setAiSettings] = useState<{
+    useOwnAiKey: boolean;
+    aiProvider: string;
+    hasApiKey: boolean;
+    planIncludesAi: boolean;
+  } | null>(null);
+  const [isAiSettingsLoading, setIsAiSettingsLoading] = useState(false);
+  const [isSavingAiSettings, setIsSavingAiSettings] = useState(false);
+  const [newApiKey, setNewApiKey] = useState("");
+  const [showApiKey, setShowApiKey] = useState(false);
+  const [selectedProvider, setSelectedProvider] = useState("gemini");
+  const [useOwnKey, setUseOwnKey] = useState(false);
+
   useEffect(() => {
     fetchOrganizationData();
   }, []);
@@ -158,6 +173,63 @@ export default function OrgAdminDashboard({ currentUser }: OrgAdminDashboardProp
       console.error('Error fetching AI usage:', error);
     } finally {
       setIsAiUsageLoading(false);
+    }
+  };
+
+  const fetchAiSettings = async () => {
+    setIsAiSettingsLoading(true);
+    try {
+      const response = await fetch('/api/my-organization/ai-settings', { credentials: 'include' });
+      if (response.ok) {
+        const data = await response.json();
+        setAiSettings(data);
+        setUseOwnKey(data.useOwnAiKey);
+        setSelectedProvider(data.aiProvider || "gemini");
+      }
+    } catch (error) {
+      console.error('Error fetching AI settings:', error);
+    } finally {
+      setIsAiSettingsLoading(false);
+    }
+  };
+
+  const saveAiSettings = async () => {
+    setIsSavingAiSettings(true);
+    try {
+      const response = await fetch('/api/my-organization/ai-settings', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          useOwnAiKey: useOwnKey,
+          aiProvider: selectedProvider,
+          aiApiKey: newApiKey || undefined,
+        }),
+      });
+
+      if (response.ok) {
+        toast({
+          title: "Success",
+          description: "AI settings updated successfully",
+        });
+        setNewApiKey("");
+        fetchAiSettings();
+      } else {
+        const error = await response.json();
+        toast({
+          title: "Error",
+          description: error.error || "Failed to update AI settings",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to update AI settings",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSavingAiSettings(false);
     }
   };
 
@@ -362,6 +434,10 @@ export default function OrgAdminDashboard({ currentUser }: OrgAdminDashboardProp
           <TabsTrigger value="ai-usage" data-testid="tab-ai-usage" onClick={() => fetchAiUsage()}>
             <Cpu className="h-4 w-4 mr-2" />
             AI Usage
+          </TabsTrigger>
+          <TabsTrigger value="ai-settings" data-testid="tab-ai-settings" onClick={() => fetchAiSettings()}>
+            <Key className="h-4 w-4 mr-2" />
+            AI Settings
           </TabsTrigger>
         </TabsList>
 
@@ -701,6 +777,175 @@ export default function OrgAdminDashboard({ currentUser }: OrgAdminDashboardProp
                     <p>No endpoint breakdown available.</p>
                   </div>
                 )}
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="ai-settings">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Key className="h-5 w-5" />
+                  AI Configuration
+                </CardTitle>
+                <CardDescription>Configure your organization's AI settings and API key</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {isAiSettingsLoading ? (
+                  <div className="flex items-center justify-center py-8">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                  </div>
+                ) : (
+                  <div className="space-y-6">
+                    {aiSettings?.planIncludesAi ? (
+                      <div className="p-4 rounded-md bg-muted/50 border">
+                        <div className="flex items-start gap-3">
+                          <Check className="h-5 w-5 text-green-600 mt-0.5" />
+                          <div>
+                            <p className="font-medium">Your plan includes AI</p>
+                            <p className="text-sm text-muted-foreground">
+                              AI features are included with your current plan. Token usage is tracked against your monthly limit.
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="p-4 rounded-md bg-amber-500/10 border border-amber-500/20">
+                        <div className="flex items-start gap-3">
+                          <AlertTriangle className="h-5 w-5 text-amber-600 mt-0.5" />
+                          <div>
+                            <p className="font-medium">Your plan requires your own AI key</p>
+                            <p className="text-sm text-muted-foreground">
+                              Please configure your own API key below to use AI features.
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <Label className="text-base">Use Your Own AI API Key</Label>
+                          <p className="text-sm text-muted-foreground">
+                            Enable this to use your organization's own AI API key instead of the system's
+                          </p>
+                        </div>
+                        <Switch
+                          checked={useOwnKey}
+                          onCheckedChange={setUseOwnKey}
+                          data-testid="switch-use-own-key"
+                        />
+                      </div>
+
+                      {useOwnKey && (
+                        <div className="space-y-4 pt-4 border-t">
+                          <div className="space-y-2">
+                            <Label htmlFor="ai-provider">AI Provider</Label>
+                            <Select value={selectedProvider} onValueChange={setSelectedProvider}>
+                              <SelectTrigger data-testid="select-ai-provider">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="gemini">Google Gemini</SelectItem>
+                                <SelectItem value="openai">OpenAI</SelectItem>
+                                <SelectItem value="deepseek">DeepSeek</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+
+                          <div className="space-y-2">
+                            <Label htmlFor="api-key">API Key</Label>
+                            <div className="flex gap-2">
+                              <div className="relative flex-1">
+                                <Input
+                                  id="api-key"
+                                  type={showApiKey ? "text" : "password"}
+                                  placeholder={aiSettings?.hasApiKey ? "Key is set (enter new key to update)" : "Enter your API key"}
+                                  value={newApiKey}
+                                  onChange={(e) => setNewApiKey(e.target.value)}
+                                  data-testid="input-api-key"
+                                />
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="icon"
+                                  className="absolute right-1 top-1/2 -translate-y-1/2"
+                                  onClick={() => setShowApiKey(!showApiKey)}
+                                >
+                                  {showApiKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                                </Button>
+                              </div>
+                            </div>
+                            {aiSettings?.hasApiKey && (
+                              <p className="text-xs text-muted-foreground">
+                                An API key is already configured. Leave blank to keep the existing key.
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    <Button 
+                      onClick={saveAiSettings} 
+                      disabled={isSavingAiSettings}
+                      className="w-full"
+                      data-testid="button-save-ai-settings"
+                    >
+                      {isSavingAiSettings ? "Saving..." : "Save AI Settings"}
+                    </Button>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Activity className="h-5 w-5" />
+                  Benefits of Using Your Own Key
+                </CardTitle>
+                <CardDescription>Why you might want to use your own API key</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  <div className="flex items-start gap-3">
+                    <div className="p-2 rounded-md bg-primary/10">
+                      <Zap className="h-4 w-4 text-primary" />
+                    </div>
+                    <div>
+                      <p className="font-medium">No Token Limits</p>
+                      <p className="text-sm text-muted-foreground">
+                        When using your own key, there are no monthly token limits from SkillShots
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-3">
+                    <div className="p-2 rounded-md bg-primary/10">
+                      <Key className="h-4 w-4 text-primary" />
+                    </div>
+                    <div>
+                      <p className="font-medium">Direct Billing</p>
+                      <p className="text-sm text-muted-foreground">
+                        Pay directly to the AI provider based on your actual usage
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-3">
+                    <div className="p-2 rounded-md bg-primary/10">
+                      <Settings className="h-4 w-4 text-primary" />
+                    </div>
+                    <div>
+                      <p className="font-medium">Provider Choice</p>
+                      <p className="text-sm text-muted-foreground">
+                        Choose between Google Gemini, OpenAI, or DeepSeek based on your preferences
+                      </p>
+                    </div>
+                  </div>
+                </div>
               </CardContent>
             </Card>
           </div>

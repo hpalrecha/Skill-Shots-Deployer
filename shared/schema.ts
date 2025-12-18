@@ -14,6 +14,10 @@ export const organizations = pgTable("organizations", {
   description: text("description"),
   isActive: boolean("is_active").notNull().default(true),
   settings: jsonb("settings").default(sql`'{}'::jsonb`),
+  // Organization AI settings - allows orgs to use their own API keys
+  useOwnAiKey: boolean("use_own_ai_key").notNull().default(false),
+  aiProvider: text("ai_provider").default("gemini"), // gemini, openai, deepseek
+  aiApiKey: text("ai_api_key"), // encrypted API key (null if using system key)
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -28,6 +32,7 @@ export const licensePlans = pgTable("license_plans", {
   maxCourses: integer("max_courses").notNull().default(20),
   maxStorageMb: integer("max_storage_mb").notNull().default(1000),
   maxTokensPerMonth: integer("max_tokens_per_month").notNull().default(1000000),
+  includesAi: boolean("includes_ai").notNull().default(true), // true = uses system AI with token limits, false = org uses own AI key
   features: jsonb("features").default(sql`'{"aiQuizGeneration": true, "analytics": true, "certificates": false}'::jsonb`),
   priceMonthly: decimal("price_monthly", { precision: 10, scale: 2 }),
   priceYearly: decimal("price_yearly", { precision: 10, scale: 2 }),
