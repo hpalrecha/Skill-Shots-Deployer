@@ -91,6 +91,13 @@ Preferred communication style: Simple, everyday language.
 - API key and base URL configured via environment variables
 - Centralized service functions in `geminiService.ts`
 - Error boundaries with graceful degradation
+- **Organization-Level AI Settings:**
+  - Organizations can configure their own AI API keys instead of using system keys
+  - License plans have an `includesAi` flag to distinguish AI-included vs bring-your-own-AI plans
+  - Organizations using their own AI keys bypass token cap limits
+  - Encrypted API key storage using crypto service
+  - OrgAdmins can configure AI settings via the "AI Settings" tab in their dashboard
+  - Supports multiple AI providers: Google Gemini, OpenAI, DeepSeek
 
 ### Data Model
 
