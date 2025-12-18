@@ -266,12 +266,22 @@ async function generateWithOpenAI(
     if ("text" in part) {
       contentParts.push({ type: "text", text: part.text });
     } else if ("inlineData" in part) {
-      contentParts.push({
-        type: "image_url",
-        image_url: {
-          url: `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`,
-        },
-      });
+      // OpenAI only supports image types, skip PDFs and other non-image files
+      const mimeType = part.inlineData.mimeType.toLowerCase();
+      if (mimeType.startsWith("image/")) {
+        contentParts.push({
+          type: "image_url",
+          image_url: {
+            url: `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`,
+          },
+        });
+      } else {
+        // For non-image files like PDFs, add a note that the file was skipped
+        contentParts.push({ 
+          type: "text", 
+          text: `[Note: A ${mimeType} file was attached but OpenAI doesn't support this file type. Please use Gemini AI provider for PDF analysis.]` 
+        });
+      }
     }
   }
   
