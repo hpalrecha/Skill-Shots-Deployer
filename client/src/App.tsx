@@ -10,6 +10,8 @@ import { User, Topic, Group, LeaderboardEntry, TopicStatus } from "./types";
 
 import Login from "./components/Login";
 import LandingPage from "./pages/LandingPage";
+import ForgotPassword from "./pages/forgot-password";
+import ResetPassword from "./pages/reset-password";
 import { AppSidebar } from "./components/AppSidebar";
 import Home from "./components/Home";
 import Dashboard from "./components/Dashboard";
@@ -441,6 +443,12 @@ function App() {
           <Switch>
             <Route path="/login">
               <Login onLogin={handleLogin} />
+            </Route>
+            <Route path="/forgot-password">
+              <ForgotPassword />
+            </Route>
+            <Route path="/reset-password">
+              <ResetPassword />
             </Route>
             <Route path="/">
               <LandingPage />

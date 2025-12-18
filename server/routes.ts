@@ -1124,6 +1124,131 @@ Requirements:
     });
   });
 
+  // Forgot Password - Request password reset
+  app.post("/api/auth/forgot-password", async (req, res) => {
+    try {
+      const { email } = req.body;
+      
+      if (!email) {
+        return res.status(400).json({ error: "Email is required" });
+      }
+
+      const user = await storage.getUserByEmail(email);
+      
+      // Always return success to prevent email enumeration
+      if (!user) {
+        return res.json({ message: "If an account with that email exists, a password reset link has been sent." });
+      }
+
+      // Generate a secure random token
+      const crypto = await import('crypto');
+      const token = crypto.randomBytes(32).toString('hex');
+      const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hour from now
+
+      // Store the token
+      await storage.createPasswordResetToken(user.id, token, expiresAt);
+
+      // Send the email
+      const { sendPasswordResetEmail } = await import('./services/emailService');
+      const emailSent = await sendPasswordResetEmail(user.email, token, user.name);
+
+      if (!emailSent) {
+        console.error('[Forgot Password] Failed to send email to:', email);
+      }
+
+      res.json({ message: "If an account with that email exists, a password reset link has been sent." });
+    } catch (error: any) {
+      console.error("Forgot password error:", error);
+      res.status(500).json({ error: "Failed to process password reset request" });
+    }
+  });
+
+  // Reset Password - Verify token and update password
+  app.post("/api/auth/reset-password", async (req, res) => {
+    try {
+      const { token, password } = req.body;
+      
+      if (!token || !password) {
+        return res.status(400).json({ error: "Token and password are required" });
+      }
+
+      if (password.length < 6) {
+        return res.status(400).json({ error: "Password must be at least 6 characters" });
+      }
+
+      // Find the token
+      const resetToken = await storage.getPasswordResetToken(token);
+      
+      if (!resetToken) {
+        return res.status(400).json({ error: "Invalid or expired reset token" });
+      }
+
+      // Check if token is expired
+      if (new Date() > new Date(resetToken.expiresAt)) {
+        return res.status(400).json({ error: "Reset token has expired" });
+      }
+
+      // Check if token was already used
+      if (resetToken.usedAt) {
+        return res.status(400).json({ error: "Reset token has already been used" });
+      }
+
+      // Get the user
+      const user = await storage.getUser(resetToken.userId);
+      if (!user) {
+        return res.status(400).json({ error: "User not found" });
+      }
+
+      // Hash the new password
+      const hashedPassword = await storage.hashPassword(password);
+
+      // Update the user's password
+      await storage.updateUser(user.id, { password: hashedPassword });
+
+      // Mark the token as used
+      await storage.markPasswordResetTokenUsed(token);
+
+      // Send confirmation email
+      const { sendPasswordChangedEmail } = await import('./services/emailService');
+      await sendPasswordChangedEmail(user.email, user.name);
+
+      res.json({ message: "Password has been reset successfully. You can now log in with your new password." });
+    } catch (error: any) {
+      console.error("Reset password error:", error);
+      res.status(500).json({ error: "Failed to reset password" });
+    }
+  });
+
+  // Verify reset token (check if token is valid before showing reset form)
+  app.get("/api/auth/verify-reset-token", async (req, res) => {
+    try {
+      const { token } = req.query;
+      
+      if (!token || typeof token !== 'string') {
+        return res.status(400).json({ valid: false, error: "Token is required" });
+      }
+
+      const resetToken = await storage.getPasswordResetToken(token);
+      
+      if (!resetToken) {
+        return res.status(400).json({ valid: false, error: "Invalid reset token" });
+      }
+
+      if (new Date() > new Date(resetToken.expiresAt)) {
+        return res.status(400).json({ valid: false, error: "Reset token has expired" });
+      }
+
+      if (resetToken.usedAt) {
+        return res.status(400).json({ valid: false, error: "Reset token has already been used" });
+      }
+
+      res.json({ valid: true });
+    } catch (error: any) {
+      console.error("Verify reset token error:", error);
+      res.status(500).json({ valid: false, error: "Failed to verify token" });
+    }
+  });
+
   app.get("/api/auth/me", async (req, res) => {
     try {
       if (!req.session.userId) {
@@ -1185,7 +1310,7 @@ Requirements:
   app.post("/api/users", async (req, res) => {
     try {
       const userId = req.session.userId;
-      const { name, email, password, role, groupIds } = req.body;
+      const { name, email, password, role, groupIds, sendWelcomeEmail } = req.body;
       if (!name || !email || !password) {
         return res.status(400).json({ error: "Name, email, and password are required" });
       }
@@ -1196,10 +1321,13 @@ Requirements:
       
       // Get the current user's organization to associate new user with it
       let organizationId: string | undefined = undefined;
+      let organizationName: string | undefined = undefined;
       if (userId) {
         const currentUser = await storage.getUser(userId);
         if (currentUser?.organizationId) {
           organizationId = currentUser.organizationId;
+          const org = await storage.getOrganization(currentUser.organizationId);
+          organizationName = org?.name;
         }
       }
       
@@ -1222,6 +1350,16 @@ Requirements:
           role: role || "Learner",
           isActive: true,
         });
+      }
+      
+      // Send welcome email with temporary password (only if sendWelcomeEmail is not explicitly false)
+      if (sendWelcomeEmail !== false) {
+        try {
+          const { sendWelcomeEmail: sendEmail } = await import('./services/emailService');
+          await sendEmail(email, name, password, organizationName);
+        } catch (emailError) {
+          console.error('[User Create] Failed to send welcome email:', emailError);
+        }
       }
       
       res.status(201).json({

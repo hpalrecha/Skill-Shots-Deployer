@@ -137,9 +137,25 @@ export default function Login({ onLogin }: LoginProps) {
     setError('');
     setIsLoading(true);
 
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    setIsLoading(false);
-    setForgotSuccess(`If an account exists for ${forgotEmail}, a password reset link has been sent.`);
+    try {
+      const response = await fetch('/api/auth/forgot-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: forgotEmail }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to send reset email');
+      }
+
+      setForgotSuccess(data.message || `If an account exists for ${forgotEmail}, a password reset link has been sent.`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Something went wrong. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const resetForm = () => {

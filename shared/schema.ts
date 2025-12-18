@@ -188,6 +188,16 @@ export const aiSettings = pgTable("ai_settings", {
   updatedBy: varchar("updated_by"),
 });
 
+// Password Reset Tokens
+export const passwordResetTokens = pgTable("password_reset_tokens", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull(),
+  token: text("token").notNull().unique(),
+  expiresAt: timestamp("expires_at").notNull(),
+  usedAt: timestamp("used_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 // AI Usage tracking for billing accountability
 export const aiUsage = pgTable("ai_usage", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -287,6 +297,11 @@ export const insertAiSettingsSchema = createInsertSchema(aiSettings).omit({
   updatedAt: true,
 });
 
+export const insertPasswordResetTokenSchema = createInsertSchema(passwordResetTokens).omit({
+  id: true,
+  createdAt: true,
+});
+
 // ==================== TYPES FOR MULTI-TENANT TABLES ====================
 
 export type InsertOrganization = z.infer<typeof insertOrganizationSchema>;
@@ -335,6 +350,9 @@ export type AiUsage = typeof aiUsage.$inferSelect;
 
 export type InsertAiSettings = z.infer<typeof insertAiSettingsSchema>;
 export type AiSettings = typeof aiSettings.$inferSelect;
+
+export type InsertPasswordResetToken = z.infer<typeof insertPasswordResetTokenSchema>;
+export type PasswordResetToken = typeof passwordResetTokens.$inferSelect;
 
 export const loginSchema = z.object({
   email: z.string().email(),

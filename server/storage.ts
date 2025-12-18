@@ -16,6 +16,7 @@ import {
   organizationMemberships,
   aiUsage,
   aiSettings,
+  passwordResetTokens,
   type User,
   type InsertUser,
   type Group,
@@ -46,6 +47,7 @@ import {
   type InsertAiUsage,
   type AiSettings,
   type InsertAiSettings,
+  type PasswordResetToken,
 } from "@shared/schema";
 import bcrypt from "bcrypt";
 
@@ -151,6 +153,12 @@ export interface IStorage {
   // AI Settings management
   getAiSettings(): Promise<AiSettings | undefined>;
   updateAiSettings(data: Partial<InsertAiSettings>): Promise<AiSettings>;
+  
+  // Password Reset Token management
+  createPasswordResetToken(userId: string, token: string, expiresAt: Date): Promise<PasswordResetToken>;
+  getPasswordResetToken(token: string): Promise<PasswordResetToken | undefined>;
+  markPasswordResetTokenUsed(token: string): Promise<boolean>;
+  cleanupExpiredTokens(): Promise<void>;
 }
 
 export interface AnalyticsOverview {
@@ -1151,6 +1159,39 @@ export class DatabaseStorage implements IStorage {
         .returning();
       return created;
     }
+  }
+
+  async createPasswordResetToken(userId: string, token: string, expiresAt: Date): Promise<PasswordResetToken> {
+    const [created] = await db.insert(passwordResetTokens)
+      .values({
+        userId,
+        token,
+        expiresAt,
+      })
+      .returning();
+    return created;
+  }
+
+  async getPasswordResetToken(token: string): Promise<PasswordResetToken | undefined> {
+    const [result] = await db.select()
+      .from(passwordResetTokens)
+      .where(eq(passwordResetTokens.token, token))
+      .limit(1);
+    return result;
+  }
+
+  async markPasswordResetTokenUsed(token: string): Promise<boolean> {
+    const result = await db.update(passwordResetTokens)
+      .set({ usedAt: new Date() })
+      .where(eq(passwordResetTokens.token, token))
+      .returning();
+    return result.length > 0;
+  }
+
+  async cleanupExpiredTokens(): Promise<void> {
+    const now = new Date();
+    await db.delete(passwordResetTokens)
+      .where(sql`${passwordResetTokens.expiresAt} < ${now} OR ${passwordResetTokens.usedAt} IS NOT NULL`);
   }
 }
 
