@@ -15,12 +15,15 @@ import { Switch } from '@/components/ui/switch';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
+type CreatorSection = 'courses' | 'users' | 'settings' | 'analytics';
+
 interface CreatorDashboardProps {
   topics: Topic[];
   users: User[];
   groups: Group[];
   categories: string[];
   currentUser?: User;
+  section?: CreatorSection;
   onAddTopic: (topic: Topic) => void;
   onUpdateTopic: (topic: Topic) => void;
   onDeleteTopic: (id: string) => void;
@@ -33,16 +36,14 @@ interface CreatorDashboardProps {
   onDeleteCategory: (cat: string) => void;
 }
 
-type Tab = 'courses' | 'users' | 'settings' | 'analytics';
-
 export default function CreatorDashboard({
   topics, users, groups, categories, currentUser,
+  section = 'courses',
   onAddTopic, onUpdateTopic, onDeleteTopic,
   onAddUser, onUpdateUser, onDeleteUser,
   onAddGroup, onDeleteGroup,
   onAddCategory, onDeleteCategory
 }: CreatorDashboardProps) {
-  const [activeTab, setActiveTab] = useState<Tab>('courses');
   const isAdmin = currentUser?.role === UserRole.Admin;
   const portalTitle = isAdmin ? 'Admin Portal' : 'Creator Studio';
   const portalDescription = isAdmin 
@@ -336,17 +337,9 @@ export default function CreatorDashboard({
       </div>
 
       <Card className="min-h-[80vh]">
-        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as Tab)}>
-          <TabsList className={`grid w-full ${isAdmin ? 'grid-cols-4' : 'grid-cols-3'}`}>
-            <TabsTrigger value="courses" data-testid="tab-courses">Courses & Content</TabsTrigger>
-            <TabsTrigger value="users" data-testid="tab-users">Users & Access</TabsTrigger>
-            <TabsTrigger value="settings" data-testid="tab-settings">Settings & Config</TabsTrigger>
-            {isAdmin && <TabsTrigger value="analytics" data-testid="tab-analytics">Analytics</TabsTrigger>}
-          </TabsList>
-
         <div className="p-6">
-          <TabsContent value="courses" className="mt-0">
-            {!isEditingTopic ? (
+          {section === 'courses' && (
+            !isEditingTopic ? (
               <div>
                 <div className="flex justify-between items-center gap-4 mb-6 flex-wrap">
                   <h2 className="text-2xl font-bold text-foreground">Content Management</h2>
@@ -619,19 +612,20 @@ export default function CreatorDashboard({
                   </Button>
                 </div>
               </form>
-            )}
-          </TabsContent>
+            )
+          )}
 
-          <TabsContent value="users" className="mt-0">
-            <div className="flex justify-between items-center gap-4 mb-6 flex-wrap">
-              <h2 className="text-2xl font-bold text-foreground">User Management</h2>
-              <Button onClick={() => setIsCreatingUser(true)} data-testid="button-add-user">
-                <PlusIcon className="h-4 w-4 mr-2" />
-                Add User
-              </Button>
-            </div>
+          {section === 'users' && (
+            <div>
+              <div className="flex justify-between items-center gap-4 mb-6 flex-wrap">
+                <h2 className="text-2xl font-bold text-foreground">User Management</h2>
+                <Button onClick={() => setIsCreatingUser(true)} data-testid="button-add-user">
+                  <PlusIcon className="h-4 w-4 mr-2" />
+                  Add User
+                </Button>
+              </div>
 
-            {isCreatingUser && (
+              {isCreatingUser && (
               <Card className="p-6 mb-6">
                 <form onSubmit={handleSaveUser} className="space-y-4">
                   <h3 className="text-lg font-semibold text-foreground">Create New User</h3>
@@ -704,11 +698,13 @@ export default function CreatorDashboard({
                   </div>
                 </Card>
               ))}
+              </div>
             </div>
-          </TabsContent>
+          )}
 
-          <TabsContent value="settings" className="mt-0">
-            <h2 className="text-2xl font-bold text-foreground mb-6">Settings & Configuration</h2>
+          {section === 'settings' && (
+            <div>
+              <h2 className="text-2xl font-bold text-foreground mb-6">Settings & Configuration</h2>
 
             <div className="space-y-8">
               <Card className="p-6">
@@ -766,16 +762,16 @@ export default function CreatorDashboard({
                 </div>
               </Card>
             </div>
-          </TabsContent>
+            </div>
+          )}
 
-          {isAdmin && (
-            <TabsContent value="analytics" className="mt-0">
+          {section === 'analytics' && isAdmin && (
+            <div>
               <h2 className="text-2xl font-bold text-foreground mb-6">Platform Analytics</h2>
               <AnalyticsDashboard />
-            </TabsContent>
+            </div>
           )}
         </div>
-        </Tabs>
       </Card>
 
       <Dialog open={showAiModal} onOpenChange={setShowAiModal}>
