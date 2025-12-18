@@ -477,6 +477,15 @@ Based on the course content provided, give a brief, helpful response.`;
       const resourceParts: Array<{ text: string } | { inlineData: { mimeType: string; data: string } }> = [];
       let resourceInfo = "";
       
+      // Track resources to embed as content blocks later
+      interface EmbeddableResource {
+        type: string;
+        content: string; // URL or base64 data
+        title?: string;
+        mimeType?: string;
+      }
+      const embeddableResources: EmbeddableResource[] = [];
+      
       console.log("[generate-course] Resources received:", resources?.length || 0, "items");
       
       if (resources && resources.length > 0) {
@@ -489,36 +498,60 @@ Based on the course content provided, give a brief, helpful response.`;
               const [header, base64Data] = r.fileData.split(',');
               const mimeType = header.split(':')[1].split(';')[0];
               console.log("[generate-course] File parsed - mimeType:", mimeType, "base64 length:", base64Data?.length);
+              
               if (base64Data && mimeType) {
-                resourceParts.push({
-                  inlineData: {
-                    mimeType: mimeType,
-                    data: base64Data
-                  }
+                // For videos, we still need to add to AI context if possible (Gemini supports video analysis)
+                const isVideo = mimeType.startsWith('video/');
+                const isImage = mimeType.startsWith('image/');
+                const isDocument = mimeType === 'application/pdf' || mimeType.includes('document');
+                
+                // Add to AI context for analysis (videos, images, PDFs)
+                if (!isVideo || (isVideo && base64Data.length < 20000000)) { // Skip very large videos for inline
+                  resourceParts.push({
+                    inlineData: {
+                      mimeType: mimeType,
+                      data: base64Data
+                    }
+                  });
+                  resourceParts.push({ text: `[Uploaded ${r.type}: ${r.fileName || 'file'}]` });
+                  console.log("[generate-course] Added file to resourceParts:", r.fileName);
+                }
+                
+                // Track for embedding as content block
+                embeddableResources.push({
+                  type: isVideo ? 'video' : isImage ? 'image' : 'document',
+                  content: r.fileData, // Keep full base64 for embedding
+                  title: r.fileName || 'Uploaded file',
+                  mimeType: mimeType
                 });
-                resourceParts.push({ text: `[Uploaded ${r.type}: ${r.fileName || 'file'}]` });
-                console.log("[generate-course] Added file to resourceParts:", r.fileName);
               }
             } catch (e) {
               console.warn("Failed to parse uploaded file for AI context", e);
               resourceInfo += `\n- ${r.type}: ${r.fileName || 'uploaded file'}`;
             }
           } else if (r.url) {
-            // Handle URL resources
+            // Handle URL resources - track for embedding
             resourceInfo += `\n- ${r.type}: ${r.url}`;
+            embeddableResources.push({
+              type: r.type,
+              content: r.url,
+              title: r.fileName || r.url.split('/').pop() || 'Resource'
+            });
             console.log("[generate-course] Added URL resource:", r.url);
           }
         }
       }
       
-      console.log("[generate-course] Total resourceParts:", resourceParts.length, "resourceInfo:", resourceInfo);
+      console.log("[generate-course] Total resourceParts:", resourceParts.length, "resourceInfo:", resourceInfo, "embeddable:", embeddableResources.length);
 
+      // Build prompt based on whether we have multimodal content
+      const hasMultimodalContent = resourceParts.length > 0;
       const genPrompt = `You are a course content creator for a corporate learning platform. Generate a comprehensive training course based on this request:
 
 TOPIC/REQUEST:
 ${prompt}
 ${resourceInfo ? `\n\nResources provided:${resourceInfo}` : ''}
-${resourceParts.length > 0 ? '\n\nAnalyze the attached files/documents to create course content based on their information.' : ''}
+${hasMultimodalContent ? '\n\nI have attached files/documents/images/videos. IMPORTANT: Analyze ALL attached content carefully and create course content that incorporates the information from these files. If there are videos, describe what they show and create relevant educational content based on them.' : ''}
 
 Generate a complete course with the following JSON structure:
 {
@@ -545,7 +578,8 @@ Requirements:
 - Each paragraph should be 100-200 words
 - Make content professional and educational
 - Include practical tips and best practices
-- If documents/files are provided, extract and incorporate key information from them
+- If documents/files/videos are provided, extract and incorporate key information from them into the paragraphs
+- For videos, describe what the video demonstrates and incorporate that into your educational content
 - Output ONLY valid JSON, no other text`;
 
       // Combine prompt with any uploaded file parts
@@ -571,6 +605,34 @@ Requirements:
       }
 
       const courseData = JSON.parse(jsonMatch[0]);
+      
+      // Append uploaded resources as content blocks so they appear in the course
+      if (embeddableResources.length > 0 && courseData.content) {
+        let currentOrder = courseData.content.length;
+        
+        for (const resource of embeddableResources) {
+          currentOrder++;
+          
+          // Add a section header for resources
+          if (currentOrder === courseData.content.length + 1) {
+            courseData.content.push({
+              type: 'paragraph',
+              content: '**Course Resources**: The following materials are included as part of this course for your reference and learning.',
+              order: currentOrder
+            });
+            currentOrder++;
+          }
+          
+          // Add the resource as a content block
+          courseData.content.push({
+            type: resource.type,
+            content: resource.content,
+            title: resource.title,
+            order: currentOrder
+          });
+        }
+      }
+      
       res.json(courseData);
     } catch (error: any) {
       console.error("Course generation error:", error);
