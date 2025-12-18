@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Topic, TopicStatus, ContentType, User, Group, UserRole, ContentBlock, CourseModule } from '../types';
-import { FileTextIcon, VideoIcon, PlusIcon, TrashIcon, EditIcon, CheckIcon, XIcon, UserCircleIcon, UsersIcon, SparklesIcon, LoaderIcon, UploadIcon, LinkIcon, ClipboardListIcon, ImageIcon } from './icons';
+import { FileTextIcon, VideoIcon, PlusIcon, TrashIcon, EditIcon, CheckIcon, XIcon, UserCircleIcon, UsersIcon, SparklesIcon, LoaderIcon, UploadIcon, DownloadIcon, LinkIcon, ClipboardListIcon, ImageIcon } from './icons';
 import ModuleEditor from './ModuleEditor';
 import AnalyticsDashboard from './AnalyticsDashboard';
 import { generateCourseFromPrompt, CourseResource } from '../services/geminiService';
@@ -658,8 +658,9 @@ export default function CreatorDashboard({
                                   link.click();
                                 }}
                                 title="Download"
+                                data-testid={`button-download-asset-${index}`}
                               >
-                                <UploadIcon className="h-4 w-4 rotate-180" />
+                                <DownloadIcon className="h-4 w-4" />
                               </Button>
                             </div>
                           </Card>
