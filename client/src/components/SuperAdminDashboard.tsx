@@ -1173,15 +1173,17 @@ export default function SuperAdminDashboard({ currentUser }: SuperAdminDashboard
                       <span className="font-medium">{plan.maxStorageMb >= 50000 ? 'Unlimited' : `${plan.maxStorageMb}MB`}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-muted-foreground">AI Tokens/Month</span>
-                      <span className="font-medium">{plan.maxTokensPerMonth >= 100000000 ? 'Unlimited' : `${(plan.maxTokensPerMonth / 1000000).toFixed(1)}M`}</span>
-                    </div>
-                    <div className="flex justify-between">
                       <span className="text-muted-foreground">AI Included</span>
                       <Badge variant={plan.includesAi ? "default" : "secondary"} className="text-xs">
                         {plan.includesAi ? 'Yes' : 'Bring Your Own'}
                       </Badge>
                     </div>
+                    {plan.includesAi && (
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">AI Tokens/Month</span>
+                        <span className="font-medium">{plan.maxTokensPerMonth >= 100000000 ? 'Unlimited' : `${(plan.maxTokensPerMonth / 1000000).toFixed(1)}M`}</span>
+                      </div>
+                    )}
                   </div>
                   <div className="pt-2 border-t">
                     <p className="text-xs text-muted-foreground mb-2">Features:</p>
@@ -1786,19 +1788,6 @@ export default function SuperAdminDashboard({ currentUser }: SuperAdminDashboard
                   />
                 </div>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="edit-plan-tokens">AI Token Cap (per month)</Label>
-                <Input
-                  id="edit-plan-tokens"
-                  data-testid="input-edit-plan-tokens"
-                  type="number"
-                  value={selectedPlan.maxTokensPerMonth || 1000000}
-                  onChange={(e) => setSelectedPlan(prev => prev ? { ...prev, maxTokensPerMonth: parseInt(e.target.value) || 1000000 } : null)}
-                />
-                <p className="text-xs text-muted-foreground">
-                  Set to 100,000,000 or higher for unlimited
-                </p>
-              </div>
               <div className="flex items-center justify-between">
                 <div>
                   <Label htmlFor="edit-plan-includes-ai">AI Included in Plan</Label>
@@ -1813,6 +1802,21 @@ export default function SuperAdminDashboard({ currentUser }: SuperAdminDashboard
                   onCheckedChange={(checked) => setSelectedPlan(prev => prev ? { ...prev, includesAi: checked } : null)}
                 />
               </div>
+              {(selectedPlan.includesAi ?? true) && (
+                <div className="space-y-2">
+                  <Label htmlFor="edit-plan-tokens">AI Token Cap (per month)</Label>
+                  <Input
+                    id="edit-plan-tokens"
+                    data-testid="input-edit-plan-tokens"
+                    type="number"
+                    value={selectedPlan.maxTokensPerMonth || 1000000}
+                    onChange={(e) => setSelectedPlan(prev => prev ? { ...prev, maxTokensPerMonth: parseInt(e.target.value) || 1000000 } : null)}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Set to 100,000,000 or higher for unlimited
+                  </p>
+                </div>
+              )}
               <div className="flex items-center justify-between">
                 <Label htmlFor="edit-plan-active">Active Status</Label>
                 <Switch
