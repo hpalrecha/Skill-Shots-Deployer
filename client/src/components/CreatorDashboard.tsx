@@ -84,6 +84,12 @@ export default function CreatorDashboard({
   const [newGroupInput, setNewGroupInput] = useState('');
   const [newCategoryInput, setNewCategoryInput] = useState('');
 
+  // Password editing state
+  const [editingPasswordUserId, setEditingPasswordUserId] = useState<string | null>(null);
+  const [newPasswordInput, setNewPasswordInput] = useState('');
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [isUpdatingPassword, setIsUpdatingPassword] = useState(false);
+
   const startEditTopic = (topic: Topic) => {
     console.log('startEditTopic - topic.modules:', topic.modules);
     setEditTopicId(topic.id);
@@ -299,18 +305,40 @@ export default function CreatorDashboard({
     setIsCreatingUser(false);
   };
 
-  const handleResetPassword = (userId: string) => {
-    const user = users.find(u => u.id === userId);
-    if (!user) return;
+  const handleUpdatePassword = async (userId: string) => {
+    if (!newPasswordInput) {
+      alert('Please enter a new password');
+      return;
+    }
 
-    const confirmReset = window.confirm(`Are you sure you want to reset the password for ${user.name}?`);
-    if (!confirmReset) return;
+    if (newPasswordInput.length < 6) {
+      alert('Password must be at least 6 characters');
+      return;
+    }
 
-    const newTempPassword = Math.random().toString(36).slice(-8);
-    const updatedUser = { ...user, password: newTempPassword };
+    setIsUpdatingPassword(true);
+    try {
+      const response = await fetch(`/api/users/${userId}/reset-password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ newPassword: newPasswordInput }),
+      });
 
-    onUpdateUser(updatedUser);
-    alert(`Password reset successfully.\n\nNew Password: ${newTempPassword}`);
+      if (response.ok) {
+        alert('Password updated successfully');
+        setEditingPasswordUserId(null);
+        setNewPasswordInput('');
+        setShowNewPassword(false);
+      } else {
+        const error = await response.json();
+        alert(error.error || 'Failed to update password');
+      }
+    } catch (error) {
+      alert('Failed to update password');
+    } finally {
+      setIsUpdatingPassword(false);
+    }
   };
 
   const handleAddGroup = () => {
@@ -697,23 +725,73 @@ export default function CreatorDashboard({
 
             <div className="space-y-3">
               {users.map(user => (
-                <Card key={user.id} className="p-4 flex items-center justify-between gap-4 flex-wrap" data-testid={`card-user-${user.id}`}>
-                  <div className="flex items-center gap-4">
-                    <UserCircleIcon className="h-10 w-10 text-muted-foreground" />
-                    <div>
-                      <p className="font-semibold text-foreground">{user.name}</p>
-                      <p className="text-sm text-muted-foreground">{user.email}</p>
+                <Card key={user.id} className="p-4" data-testid={`card-user-${user.id}`}>
+                  <div className="flex items-center justify-between gap-4 flex-wrap">
+                    <div className="flex items-center gap-4">
+                      <UserCircleIcon className="h-10 w-10 text-muted-foreground" />
+                      <div>
+                        <p className="font-semibold text-foreground">{user.name}</p>
+                        <p className="text-sm text-muted-foreground">{user.email}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3 flex-wrap">
+                      <Badge variant="secondary">{user.role}</Badge>
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        onClick={() => {
+                          if (editingPasswordUserId === user.id) {
+                            setEditingPasswordUserId(null);
+                            setNewPasswordInput('');
+                            setShowNewPassword(false);
+                          } else {
+                            setEditingPasswordUserId(user.id);
+                            setNewPasswordInput('');
+                            setShowNewPassword(false);
+                          }
+                        }} 
+                        data-testid={`button-reset-password-${user.id}`}
+                      >
+                        {editingPasswordUserId === user.id ? 'Cancel' : 'Update Password'}
+                      </Button>
+                      <Button variant="ghost" size="icon" onClick={() => onDeleteUser(user.id)} className="text-destructive" data-testid={`button-delete-user-${user.id}`}>
+                        <TrashIcon className="h-4 w-4" />
+                      </Button>
                     </div>
                   </div>
-                  <div className="flex items-center gap-3 flex-wrap">
-                    <Badge variant="secondary">{user.role}</Badge>
-                    <Button variant="outline" size="sm" onClick={() => handleResetPassword(user.id)} data-testid={`button-reset-password-${user.id}`}>
-                      Reset Password
-                    </Button>
-                    <Button variant="ghost" size="icon" onClick={() => onDeleteUser(user.id)} className="text-destructive" data-testid={`button-delete-user-${user.id}`}>
-                      <TrashIcon className="h-4 w-4" />
-                    </Button>
-                  </div>
+                  {editingPasswordUserId === user.id && (
+                    <div className="mt-4 pt-4 border-t flex gap-2 items-end flex-wrap">
+                      <div className="flex-1 min-w-[200px]">
+                        <Label htmlFor={`password-${user.id}`} className="text-sm text-muted-foreground mb-1 block">New Password (min 6 characters)</Label>
+                        <div className="relative">
+                          <Input
+                            id={`password-${user.id}`}
+                            type={showNewPassword ? "text" : "password"}
+                            value={newPasswordInput}
+                            onChange={(e) => setNewPasswordInput(e.target.value)}
+                            placeholder="Enter new password..."
+                            data-testid={`input-new-password-${user.id}`}
+                          />
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="absolute right-0 top-0 h-full"
+                            onClick={() => setShowNewPassword(!showNewPassword)}
+                          >
+                            {showNewPassword ? <XIcon className="h-4 w-4" /> : <CheckIcon className="h-4 w-4" />}
+                          </Button>
+                        </div>
+                      </div>
+                      <Button
+                        onClick={() => handleUpdatePassword(user.id)}
+                        disabled={isUpdatingPassword || !newPasswordInput || newPasswordInput.length < 6}
+                        data-testid={`button-confirm-password-${user.id}`}
+                      >
+                        {isUpdatingPassword ? 'Updating...' : 'Save Password'}
+                      </Button>
+                    </div>
+                  )}
                 </Card>
               ))}
               </div>

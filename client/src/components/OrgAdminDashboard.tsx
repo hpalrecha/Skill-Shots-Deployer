@@ -71,6 +71,9 @@ export default function OrgAdminDashboard({ currentUser, section = 'overview' }:
   const [isAddMemberDialogOpen, setIsAddMemberDialogOpen] = useState(false);
   const [isEditMemberDialogOpen, setIsEditMemberDialogOpen] = useState(false);
   const [selectedMember, setSelectedMember] = useState<OrganizationMember | null>(null);
+  const [memberNewPassword, setMemberNewPassword] = useState("");
+  const [showMemberPassword, setShowMemberPassword] = useState(false);
+  const [isUpdatingPassword, setIsUpdatingPassword] = useState(false);
   
   const { toast } = useToast();
 
@@ -364,6 +367,60 @@ export default function OrgAdminDashboard({ currentUser, section = 'overview' }:
         description: "Failed to remove member",
         variant: "destructive",
       });
+    }
+  };
+
+  const handleUpdateMemberPassword = async () => {
+    if (!selectedMember || !memberNewPassword) {
+      toast({
+        title: "Validation Error",
+        description: "Please enter a new password",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (memberNewPassword.length < 6) {
+      toast({
+        title: "Validation Error",
+        description: "Password must be at least 6 characters",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsUpdatingPassword(true);
+    try {
+      const response = await fetch(`/api/users/${selectedMember.userId}/reset-password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ newPassword: memberNewPassword }),
+      });
+
+      if (response.ok) {
+        toast({
+          title: "Success",
+          description: "Password updated successfully",
+        });
+        setMemberNewPassword("");
+        setShowMemberPassword(false);
+      } else {
+        const error = await response.json();
+        toast({
+          title: "Error",
+          description: error.error || "Failed to update password",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to update password",
+        variant: "destructive",
+      });
+    } finally {
+      setIsUpdatingPassword(false);
     }
   };
 
@@ -1018,12 +1075,18 @@ export default function OrgAdminDashboard({ currentUser, section = 'overview' }:
         </DialogContent>
       </Dialog>
 
-      <Dialog open={isEditMemberDialogOpen} onOpenChange={setIsEditMemberDialogOpen}>
+      <Dialog open={isEditMemberDialogOpen} onOpenChange={(open) => {
+        setIsEditMemberDialogOpen(open);
+        if (!open) {
+          setMemberNewPassword("");
+          setShowMemberPassword(false);
+        }
+      }}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Edit Member</DialogTitle>
             <DialogDescription>
-              Update role for {selectedMember?.user.name}
+              Update settings for {selectedMember?.user.name}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
@@ -1046,6 +1109,47 @@ export default function OrgAdminDashboard({ currentUser, section = 'overview' }:
                   <SelectItem value="OrgAdmin">Admin</SelectItem>
                 </SelectContent>
               </Select>
+            </div>
+            <div className="space-y-2 pt-4 border-t">
+              <Label>Update Password</Label>
+              <div className="flex gap-2">
+                <div className="relative flex-1">
+                  <Input
+                    type={showMemberPassword ? "text" : "password"}
+                    value={memberNewPassword}
+                    onChange={(e) => setMemberNewPassword(e.target.value)}
+                    placeholder="Enter new password..."
+                    data-testid="input-member-new-password"
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="absolute right-0 top-0 h-full"
+                    onClick={() => setShowMemberPassword(!showMemberPassword)}
+                  >
+                    {showMemberPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </Button>
+                </div>
+                <Button
+                  onClick={handleUpdateMemberPassword}
+                  disabled={isUpdatingPassword || !memberNewPassword}
+                  data-testid="button-update-member-password"
+                >
+                  {isUpdatingPassword ? (
+                    <span className="flex items-center gap-2">
+                      <span className="animate-spin rounded-full h-4 w-4 border-b-2 border-current"></span>
+                      Updating...
+                    </span>
+                  ) : (
+                    <>
+                      <Key className="h-4 w-4 mr-2" />
+                      Update
+                    </>
+                  )}
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground">Password must be at least 6 characters</p>
             </div>
           </div>
           <DialogFooter>
