@@ -398,7 +398,8 @@ function App() {
   const getAccessibleTopics = (): Topic[] => {
     if (!currentUser) return [];
     
-    if (currentUser.role === 'Creator' || currentUser.role === 'Admin') {
+    // SuperAdmin, OrgAdmin, Admin, and Creator can see all topics
+    if (currentUser.role === 'SuperAdmin' || currentUser.role === 'OrgAdmin' || currentUser.role === 'Creator' || currentUser.role === 'Admin') {
       return topics;
     }
     

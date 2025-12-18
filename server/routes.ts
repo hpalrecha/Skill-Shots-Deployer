@@ -477,13 +477,18 @@ Based on the course content provided, give a brief, helpful response.`;
       const resourceParts: Array<{ text: string } | { inlineData: { mimeType: string; data: string } }> = [];
       let resourceInfo = "";
       
+      console.log("[generate-course] Resources received:", resources?.length || 0, "items");
+      
       if (resources && resources.length > 0) {
         for (const r of resources) {
+          console.log("[generate-course] Processing resource:", { type: r.type, isFile: r.isFile, hasFileData: !!r.fileData, fileName: r.fileName, url: r.url?.substring(0, 50) });
+          
           if (r.isFile && r.fileData) {
             // Handle uploaded file (base64 data)
             try {
               const [header, base64Data] = r.fileData.split(',');
               const mimeType = header.split(':')[1].split(';')[0];
+              console.log("[generate-course] File parsed - mimeType:", mimeType, "base64 length:", base64Data?.length);
               if (base64Data && mimeType) {
                 resourceParts.push({
                   inlineData: {
@@ -492,6 +497,7 @@ Based on the course content provided, give a brief, helpful response.`;
                   }
                 });
                 resourceParts.push({ text: `[Uploaded ${r.type}: ${r.fileName || 'file'}]` });
+                console.log("[generate-course] Added file to resourceParts:", r.fileName);
               }
             } catch (e) {
               console.warn("Failed to parse uploaded file for AI context", e);
@@ -500,9 +506,12 @@ Based on the course content provided, give a brief, helpful response.`;
           } else if (r.url) {
             // Handle URL resources
             resourceInfo += `\n- ${r.type}: ${r.url}`;
+            console.log("[generate-course] Added URL resource:", r.url);
           }
         }
       }
+      
+      console.log("[generate-course] Total resourceParts:", resourceParts.length, "resourceInfo:", resourceInfo);
 
       const genPrompt = `You are a course content creator for a corporate learning platform. Generate a comprehensive training course based on this request:
 
