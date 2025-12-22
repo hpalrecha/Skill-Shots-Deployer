@@ -85,6 +85,9 @@ export default function OrgAdminDashboard({ currentUser, section = 'overview' }:
     department: "",
   });
 
+  const [departments, setDepartments] = useState<string[]>([]);
+  const [isCustomDepartment, setIsCustomDepartment] = useState(false);
+
   const [aiUsage, setAiUsage] = useState<{
     totalRequests: number;
     totalTokens: number;
@@ -204,6 +207,19 @@ export default function OrgAdminDashboard({ currentUser, section = 'overview' }:
       console.error('Error fetching AI settings:', error);
     } finally {
       setIsAiSettingsLoading(false);
+    }
+  };
+
+  const fetchDepartments = async () => {
+    if (!organization?.id) return;
+    try {
+      const response = await fetch(`/api/organizations/${organization.id}/departments`, { credentials: 'include' });
+      if (response.ok) {
+        const data = await response.json();
+        setDepartments(data);
+      }
+    } catch (error) {
+      console.error('Error fetching departments:', error);
     }
   };
 
@@ -552,7 +568,7 @@ export default function OrgAdminDashboard({ currentUser, section = 'overview' }:
               <CardDescription>Common administrative tasks</CardDescription>
             </CardHeader>
             <CardContent className="flex flex-wrap gap-4">
-              <Button onClick={() => { setLocation("/orgadmin/members"); setIsAddMemberDialogOpen(true); }} data-testid="button-add-member-quick">
+              <Button onClick={() => { setLocation("/orgadmin/members"); fetchDepartments(); setIsAddMemberDialogOpen(true); }} data-testid="button-add-member-quick">
                 <UserPlus className="h-4 w-4 mr-2" />
                 Add New Member
               </Button>
@@ -576,7 +592,7 @@ export default function OrgAdminDashboard({ currentUser, section = 'overview' }:
                 <CardTitle>Organization Members</CardTitle>
                 <CardDescription>Manage users in your organization</CardDescription>
               </div>
-              <Button onClick={() => setIsAddMemberDialogOpen(true)} data-testid="button-add-member">
+              <Button onClick={() => { fetchDepartments(); setIsAddMemberDialogOpen(true); }} data-testid="button-add-member">
                 <UserPlus className="h-4 w-4 mr-2" />
                 Add Member
               </Button>
@@ -997,7 +1013,13 @@ export default function OrgAdminDashboard({ currentUser, section = 'overview' }:
           </div>
       )}
 
-      <Dialog open={isAddMemberDialogOpen} onOpenChange={setIsAddMemberDialogOpen}>
+      <Dialog open={isAddMemberDialogOpen} onOpenChange={(open) => {
+        setIsAddMemberDialogOpen(open);
+        if (!open) {
+          setIsCustomDepartment(false);
+          setNewMember({ name: "", email: "", password: "", role: "Learner", department: "" });
+        }
+      }}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Add New Member</DialogTitle>
@@ -1054,13 +1076,51 @@ export default function OrgAdminDashboard({ currentUser, section = 'overview' }:
             </div>
             <div className="space-y-2">
               <Label htmlFor="member-department">Department</Label>
-              <Input
-                id="member-department"
-                placeholder="e.g., Engineering, Sales, HR"
-                value={newMember.department}
-                onChange={(e) => setNewMember({ ...newMember, department: e.target.value })}
-                data-testid="input-member-department"
-              />
+              {isCustomDepartment ? (
+                <div className="flex gap-2">
+                  <Input
+                    id="member-department"
+                    placeholder="Enter new department name"
+                    value={newMember.department}
+                    onChange={(e) => setNewMember({ ...newMember, department: e.target.value })}
+                    data-testid="input-member-department"
+                  />
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setIsCustomDepartment(false);
+                      setNewMember({ ...newMember, department: "" });
+                    }}
+                    data-testid="button-cancel-custom-department"
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              ) : (
+                <Select
+                  value={newMember.department || ""}
+                  onValueChange={(value) => {
+                    if (value === "__new__") {
+                      setIsCustomDepartment(true);
+                      setNewMember({ ...newMember, department: "" });
+                    } else {
+                      setNewMember({ ...newMember, department: value === "__none__" ? "" : value });
+                    }
+                  }}
+                >
+                  <SelectTrigger data-testid="select-member-department">
+                    <SelectValue placeholder="Select a department" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__">No department</SelectItem>
+                    {departments.map((dept) => (
+                      <SelectItem key={dept} value={dept}>{dept}</SelectItem>
+                    ))}
+                    <SelectItem value="__new__">+ Add new department</SelectItem>
+                  </SelectContent>
+                </Select>
+              )}
               <p className="text-xs text-muted-foreground">Optional - Assign this user to a department</p>
             </div>
           </div>

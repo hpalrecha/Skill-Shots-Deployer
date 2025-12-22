@@ -2689,6 +2689,32 @@ Requirements:
     }
   });
 
+  // Get unique departments for an organization
+  app.get("/api/organizations/:orgId/departments", async (req, res) => {
+    try {
+      const userId = req.session.userId;
+      if (!userId) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+      
+      const user = await storage.getUser(userId);
+      const membership = await storage.getOrganizationMembership(userId, req.params.orgId);
+      
+      if (!user || (user.role !== "SuperAdmin" && user.role !== "OrgAdmin" && (!membership || (membership.role !== "admin" && membership.role !== "OrgAdmin")))) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+      
+      const users = await storage.getUsersByOrganization(req.params.orgId);
+      const deptSet = new Set<string>();
+      users.forEach(u => { if (u.department) deptSet.add(u.department); });
+      const departments = Array.from(deptSet);
+      res.json(departments);
+    } catch (error: any) {
+      console.error("Get organization departments error:", error);
+      res.status(500).json({ error: error.message || "Failed to get organization departments" });
+    }
+  });
+
   // ==================== AI SETTINGS MANAGEMENT (SuperAdmin only) ====================
   
   // Get AI settings
