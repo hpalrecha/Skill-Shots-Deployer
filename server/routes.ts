@@ -2520,17 +2520,30 @@ Requirements:
           return res.status(409).json({ error: "A user with this email already exists" });
         }
         
+        // Hash the password before storing
+        const bcrypt = await import("bcrypt");
+        const hashedPassword = await bcrypt.hash(password, 10);
+        
         // Create new user with department
         const newUser = await storage.createUser({
           name,
           email,
-          password,
+          password: hashedPassword,
           role: role || "Learner",
           organizationId: req.params.orgId,
           department: department || null,
           groupIds: [],
         });
         targetUserId = newUser.id;
+        
+        // Send welcome email with temporary password
+        try {
+          const { sendWelcomeEmail } = await import('./services/emailService');
+          const org = await storage.getOrganization(req.params.orgId);
+          await sendWelcomeEmail(email, name, password, org?.name);
+        } catch (emailError) {
+          console.error('[Org Member Create] Failed to send welcome email:', emailError);
+        }
       }
       
       if (!targetUserId) {
