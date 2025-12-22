@@ -2520,15 +2520,11 @@ Requirements:
           return res.status(409).json({ error: "A user with this email already exists" });
         }
         
-        // Hash the password before storing
-        const bcrypt = await import("bcrypt");
-        const hashedPassword = await bcrypt.hash(password, 10);
-        
-        // Create new user with department
+        // Create new user with department (storage.createUser handles password hashing)
         const newUser = await storage.createUser({
           name,
           email,
-          password: hashedPassword,
+          password,
           role: role || "Learner",
           organizationId: req.params.orgId,
           department: department || null,

@@ -350,7 +350,7 @@ export default function OrgAdminDashboard({ currentUser, section = 'overview' }:
     }
   };
 
-  const handleRemoveMember = async (memberId: string) => {
+  const handleRemoveMember = async (userId: string) => {
     if (!organization) return;
     
     if (!window.confirm('Are you sure you want to remove this member from the organization?')) {
@@ -358,7 +358,7 @@ export default function OrgAdminDashboard({ currentUser, section = 'overview' }:
     }
 
     try {
-      const response = await fetch(`/api/organizations/${organization.id}/members/${memberId}`, {
+      const response = await fetch(`/api/organizations/${organization.id}/members/${userId}`, {
         method: 'DELETE',
         credentials: 'include',
       });
@@ -638,7 +638,7 @@ export default function OrgAdminDashboard({ currentUser, section = 'overview' }:
                         <Button
                           variant="ghost"
                           size="icon"
-                          onClick={() => handleRemoveMember(member.id)}
+                          onClick={() => handleRemoveMember(member.userId)}
                           disabled={member.user.id === currentUser.id}
                           data-testid={`button-remove-member-${member.id}`}
                         >
