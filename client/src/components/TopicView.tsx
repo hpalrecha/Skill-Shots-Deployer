@@ -107,7 +107,193 @@ export default function TopicView({ topic, onMarkComplete, groups }: TopicViewPr
           </div>
         )}
 
-        {topic.modules && topic.modules.length > 0 ? (
+        {/* Always show topic content blocks first if they exist */}
+        {topic.content && topic.content.length > 0 && topic.content.some(b => b.content) && (
+          <div className="prose prose-lg max-w-none text-foreground space-y-6 mb-8">
+            <p className="text-sm text-muted-foreground">Course Materials ({topic.content.filter(b => b.content).length} items)</p>
+            {topic.content.map((block, index) => {
+              if (!block.content) return null;
+              console.log('TopicView rendering block:', block.type, 'ContentType.Document:', ContentType.Document, 'match:', block.type === ContentType.Document);
+
+              switch (block.type) {
+                case ContentType.Paragraph:
+                  return <p key={index} className="whitespace-pre-line leading-relaxed text-foreground">{block.content}</p>;
+                case ContentType.Image:
+                  const hasImgDataUrl = block.content?.startsWith('data:');
+                  return (
+                    <Card key={index} className="my-8 p-4">
+                      <div className="relative">
+                        <img src={block.content} alt={block.title || 'Topic Image'} className="w-full rounded-lg" />
+                        <div className="absolute top-2 right-2 flex gap-2">
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            onClick={() => {
+                              const newWindow = window.open();
+                              if (newWindow) {
+                                newWindow.document.write(`
+                                  <html>
+                                    <head><title>${block.title || 'Image'}</title></head>
+                                    <body style="margin:0;padding:20px;background:#000;display:flex;justify-content:center;align-items:center;min-height:100vh;">
+                                      <img src="${block.content}" style="max-width:100%;max-height:100vh;object-fit:contain;" />
+                                    </body>
+                                  </html>
+                                `);
+                              }
+                            }}
+                            data-testid={`button-view-topimg-${index}`}
+                          >
+                            <Eye className="h-4 w-4 mr-1" />
+                            View Full
+                          </Button>
+                          {hasImgDataUrl && (
+                            <Button
+                              variant="secondary"
+                              size="sm"
+                              onClick={() => {
+                                const link = document.createElement('a');
+                                link.href = block.content;
+                                link.download = block.title || 'image.png';
+                                document.body.appendChild(link);
+                                link.click();
+                                document.body.removeChild(link);
+                              }}
+                              data-testid={`button-download-topimg-${index}`}
+                            >
+                              <Download className="h-4 w-4 mr-1" />
+                              Download
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+                      {block.title && <p className="text-center text-sm text-muted-foreground mt-3">{block.title}</p>}
+                    </Card>
+                  );
+                case ContentType.Video:
+                  const vidIsYouTube = block.content.includes('youtube.com') || block.content.includes('youtu.be');
+                  const vidHasDataUrl = block.content?.startsWith('data:');
+                  return (
+                    <Card key={index} className="my-8 p-4 bg-muted/50">
+                      <h4 className="flex items-center gap-2 font-bold text-foreground mb-3">
+                        <VideoIcon className="h-5 w-5 text-primary" /> 
+                        {block.title || 'Instructional Video'}
+                      </h4>
+                      <div className="aspect-video mb-4">
+                        {vidIsYouTube ? (
+                          <iframe 
+                            src={block.content} 
+                            title={block.title || 'Video'} 
+                            frameBorder="0" 
+                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+                            allowFullScreen 
+                            className="rounded-lg shadow-md w-full h-full"
+                          ></iframe>
+                        ) : vidHasDataUrl ? (
+                          <video src={block.content} controls className="rounded-lg w-full h-full">
+                            Your browser does not support the video tag.
+                          </video>
+                        ) : (
+                          <div className="flex flex-col items-center justify-center h-full bg-muted rounded-lg p-4 gap-3">
+                            <VideoIcon className="h-12 w-12 text-muted-foreground" />
+                            <p className="text-muted-foreground text-sm text-center">{block.title || 'Video file'}</p>
+                            <Button variant="outline" size="sm" onClick={() => window.open(block.content, '_blank')}>
+                              <ExternalLink className="h-4 w-4 mr-1" />
+                              Open Video
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+                      {vidHasDataUrl && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            const link = document.createElement('a');
+                            link.href = block.content;
+                            link.download = block.title || 'video.mp4';
+                            document.body.appendChild(link);
+                            link.click();
+                            document.body.removeChild(link);
+                          }}
+                        >
+                          <Download className="h-4 w-4 mr-1" />
+                          Download Video
+                        </Button>
+                      )}
+                    </Card>
+                  );
+                case ContentType.Document:
+                  const docIsPdf = block.content?.startsWith('data:application/pdf') || block.title?.toLowerCase().endsWith('.pdf');
+                  const docHasDataUrl = block.content?.startsWith('data:');
+                  return (
+                    <Card key={index} className="my-6 p-4">
+                      <div className="flex items-center gap-4">
+                        <div className="p-3 bg-primary/10 rounded-lg">
+                          <FileTextIcon className="h-8 w-8 text-primary" />
+                        </div>
+                        <div className="flex-1">
+                          <span className="block font-bold text-foreground">Reference Document</span>
+                          <span className="block text-sm text-muted-foreground mt-0.5">{block.title || 'Document'}</span>
+                          {docHasDataUrl && (
+                            <Badge variant="secondary" className="mt-1 text-xs">Uploaded File</Badge>
+                          )}
+                        </div>
+                        <div className="flex gap-2">
+                          {docHasDataUrl && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                const newWindow = window.open();
+                                if (newWindow) {
+                                  newWindow.document.write(`
+                                    <html>
+                                      <head><title>${block.title || 'Document'}</title></head>
+                                      <body style="margin:0;padding:0;">
+                                        ${docIsPdf 
+                                          ? `<embed src="${block.content}" type="application/pdf" width="100%" height="100%" style="position:absolute;inset:0;" />`
+                                          : `<img src="${block.content}" style="max-width:100%;height:auto;" />`
+                                        }
+                                      </body>
+                                    </html>
+                                  `);
+                                }
+                              }}
+                            >
+                              <Eye className="h-4 w-4 mr-1" />
+                              View
+                            </Button>
+                          )}
+                          {docHasDataUrl && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                const link = document.createElement('a');
+                                link.href = block.content;
+                                link.download = block.title || (docIsPdf ? 'document.pdf' : 'document');
+                                document.body.appendChild(link);
+                                link.click();
+                                document.body.removeChild(link);
+                              }}
+                            >
+                              <Download className="h-4 w-4 mr-1" />
+                              Download
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+                    </Card>
+                  );
+                default:
+                  return null;
+              }
+            })}
+          </div>
+        )}
+
+        {/* Show modules if they exist */}
+        {topic.modules && topic.modules.length > 0 && (
           <div className="mb-8">
             <ModuleLearnerView
               modules={topic.modules}
@@ -115,7 +301,10 @@ export default function TopicView({ topic, onMarkComplete, groups }: TopicViewPr
               onAllModulesComplete={() => onMarkComplete(topic.id)}
             />
           </div>
-        ) : (
+        )}
+
+        {/* Show topic content only when no modules exist (fallback for old topics) */}
+        {(!topic.modules || topic.modules.length === 0) && topic.content && topic.content.length > 0 && (
         <div className="prose prose-lg max-w-none text-foreground space-y-6">
           {topic.content.map((block, index) => {
             if (!block.content) return null;
