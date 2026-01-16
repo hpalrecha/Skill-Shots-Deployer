@@ -169,22 +169,35 @@ export default function CreatorDashboard({
     setAiResources([]);
   };
 
-  // Fetch available departments from the organization
+  // Fetch available departments from the organization and also include groups as departments
   useEffect(() => {
     const fetchDepartments = async () => {
-      if (!currentUser?.organizationId) return;
-      try {
-        const response = await fetch(`/api/organizations/${currentUser.organizationId}/departments`);
-        if (response.ok) {
-          const depts = await response.json();
-          setAvailableDepartments(depts);
+      const deptSet = new Set<string>();
+      
+      // Add group names as departments (excluding "All Employees")
+      groups.forEach(g => {
+        if (g.name && g.name !== 'All Employees') {
+          deptSet.add(g.name);
         }
-      } catch (error) {
-        console.error('Failed to fetch departments:', error);
+      });
+      
+      // Also fetch departments from users in the organization
+      if (currentUser?.organizationId) {
+        try {
+          const response = await fetch(`/api/organizations/${currentUser.organizationId}/departments`);
+          if (response.ok) {
+            const depts = await response.json();
+            depts.forEach((d: string) => deptSet.add(d));
+          }
+        } catch (error) {
+          console.error('Failed to fetch departments:', error);
+        }
       }
+      
+      setAvailableDepartments(Array.from(deptSet).sort());
     };
     fetchDepartments();
-  }, [currentUser?.organizationId]);
+  }, [currentUser?.organizationId, groups]);
 
   const handleSaveTopic = (e: React.FormEvent) => {
     e.preventDefault();
