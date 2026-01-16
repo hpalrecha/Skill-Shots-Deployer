@@ -55,6 +55,7 @@ function App() {
           status: TopicStatus.Pending,
           sharedWith: t.sharedWith || [],
           sharedWithUsers: t.sharedWithUsers || [],
+          sharedWithDepartments: t.sharedWithDepartments || [],
         })));
       }
       if (groupsRes.ok) {
@@ -208,6 +209,7 @@ function App() {
           imageUrl: topic.imageUrl,
           sharedWith: topic.sharedWith,
           sharedWithUsers: topic.sharedWithUsers,
+          sharedWithDepartments: topic.sharedWithDepartments,
           isSop: topic.isSop,
         }),
       });
@@ -236,6 +238,7 @@ function App() {
           imageUrl: topic.imageUrl,
           sharedWith: topic.sharedWith,
           sharedWithUsers: topic.sharedWithUsers,
+          sharedWithDepartments: topic.sharedWithDepartments,
           isSop: topic.isSop,
         }),
       });
@@ -406,12 +409,21 @@ function App() {
     }
     
     return topics.filter(topic => {
+      // Check if shared with this specific user
       if (topic.sharedWithUsers && topic.sharedWithUsers.includes(currentUser.id)) {
         return true;
       }
+      // Check if shared with user's department
+      if (topic.sharedWithDepartments && topic.sharedWithDepartments.length > 0 && currentUser.department) {
+        if (topic.sharedWithDepartments.includes(currentUser.department)) {
+          return true;
+        }
+      }
+      // Check if shared with user's groups
       if (topic.sharedWith && topic.sharedWith.some(groupId => currentUser.groupIds.includes(groupId))) {
         return true;
       }
+      // Check if shared with "All Employees" group
       const allEmployeesGroup = groups.find(g => g.name === 'All Employees');
       if (allEmployeesGroup && topic.sharedWith && topic.sharedWith.includes(allEmployeesGroup.id)) {
         return true;

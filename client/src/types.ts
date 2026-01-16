@@ -87,6 +87,8 @@ export interface User {
   role: UserRole;
   groupIds: string[];
   password?: string;
+  department?: string;
+  organizationId?: string;
 }
 
 export interface Group {
