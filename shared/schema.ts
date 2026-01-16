@@ -99,6 +99,7 @@ export const topics = pgTable("topics", {
   imageUrl: text("image_url"),
   sharedWith: text("shared_with").array().default(sql`ARRAY[]::text[]`),
   sharedWithUsers: text("shared_with_users").array().default(sql`ARRAY[]::text[]`),
+  sharedWithDepartments: text("shared_with_departments").array().default(sql`ARRAY[]::text[]`),
   isSop: boolean("is_sop").default(false),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),

@@ -54,6 +54,7 @@ export interface Topic {
   imageUrl: string;
   sharedWith: string[];
   sharedWithUsers?: string[];
+  sharedWithDepartments?: string[];
   isSop?: boolean;
 }
 
