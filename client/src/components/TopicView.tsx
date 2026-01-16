@@ -244,19 +244,36 @@ export default function TopicView({ topic, onMarkComplete, groups }: TopicViewPr
                               variant="outline"
                               size="sm"
                               onClick={() => {
-                                const newWindow = window.open();
-                                if (newWindow) {
-                                  newWindow.document.write(`
-                                    <html>
-                                      <head><title>${block.title || 'Document'}</title></head>
-                                      <body style="margin:0;padding:0;">
-                                        ${docIsPdf 
-                                          ? `<embed src="${block.content}" type="application/pdf" width="100%" height="100%" style="position:absolute;inset:0;" />`
-                                          : `<img src="${block.content}" style="max-width:100%;height:auto;" />`
-                                        }
-                                      </body>
-                                    </html>
-                                  `);
+                                if (docIsPdf) {
+                                  // Convert base64 to Blob for better PDF viewing
+                                  try {
+                                    const base64Data = block.content.split(',')[1];
+                                    const byteCharacters = atob(base64Data);
+                                    const byteNumbers = new Array(byteCharacters.length);
+                                    for (let i = 0; i < byteCharacters.length; i++) {
+                                      byteNumbers[i] = byteCharacters.charCodeAt(i);
+                                    }
+                                    const byteArray = new Uint8Array(byteNumbers);
+                                    const blob = new Blob([byteArray], { type: 'application/pdf' });
+                                    const blobUrl = URL.createObjectURL(blob);
+                                    window.open(blobUrl, '_blank');
+                                  } catch (e) {
+                                    // Fallback: open data URL directly
+                                    window.open(block.content, '_blank');
+                                  }
+                                } else {
+                                  // For images, use the original approach
+                                  const newWindow = window.open();
+                                  if (newWindow) {
+                                    newWindow.document.write(`
+                                      <html>
+                                        <head><title>${block.title || 'Document'}</title></head>
+                                        <body style="margin:0;padding:0;">
+                                          <img src="${block.content}" style="max-width:100%;height:auto;" />
+                                        </body>
+                                      </html>
+                                    `);
+                                  }
                                 }
                               }}
                             >
@@ -471,19 +488,36 @@ export default function TopicView({ topic, onMarkComplete, groups }: TopicViewPr
                             variant="outline"
                             size="sm"
                             onClick={() => {
-                              const newWindow = window.open();
-                              if (newWindow) {
-                                newWindow.document.write(`
-                                  <html>
-                                    <head><title>${block.title || 'Document'}</title></head>
-                                    <body style="margin:0;padding:0;">
-                                      ${isPdf 
-                                        ? `<embed src="${block.content}" type="application/pdf" width="100%" height="100%" style="position:absolute;inset:0;" />`
-                                        : `<img src="${block.content}" style="max-width:100%;height:auto;" />`
-                                      }
-                                    </body>
-                                  </html>
-                                `);
+                              if (isPdf) {
+                                // Convert base64 to Blob for better PDF viewing
+                                try {
+                                  const base64Data = block.content.split(',')[1];
+                                  const byteCharacters = atob(base64Data);
+                                  const byteNumbers = new Array(byteCharacters.length);
+                                  for (let i = 0; i < byteCharacters.length; i++) {
+                                    byteNumbers[i] = byteCharacters.charCodeAt(i);
+                                  }
+                                  const byteArray = new Uint8Array(byteNumbers);
+                                  const blob = new Blob([byteArray], { type: 'application/pdf' });
+                                  const blobUrl = URL.createObjectURL(blob);
+                                  window.open(blobUrl, '_blank');
+                                } catch (e) {
+                                  // Fallback: open data URL directly
+                                  window.open(block.content, '_blank');
+                                }
+                              } else {
+                                // For images, use the original approach
+                                const newWindow = window.open();
+                                if (newWindow) {
+                                  newWindow.document.write(`
+                                    <html>
+                                      <head><title>${block.title || 'Document'}</title></head>
+                                      <body style="margin:0;padding:0;">
+                                        <img src="${block.content}" style="max-width:100%;height:auto;" />
+                                      </body>
+                                    </html>
+                                  `);
+                                }
                               }
                             }}
                             data-testid={`button-view-doc-${index}`}
