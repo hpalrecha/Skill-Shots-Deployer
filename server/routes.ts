@@ -1377,7 +1377,7 @@ Requirements:
 
   app.put("/api/users/:id", async (req, res) => {
     try {
-      const { name, email, role, groupIds } = req.body;
+      const { name, email, role, groupIds, department } = req.body;
       const user = await storage.getUser(req.params.id);
       if (!user) {
         return res.status(404).json({ error: "User not found" });
@@ -1387,6 +1387,7 @@ Requirements:
         email: email ?? user.email,
         role: role ?? user.role,
         groupIds: groupIds ?? user.groupIds,
+        department: department !== undefined ? department : user.department,
       });
       if (!updatedUser) {
         return res.status(404).json({ error: "User not found" });
@@ -1397,6 +1398,7 @@ Requirements:
         email: updatedUser.email,
         role: updatedUser.role,
         groupIds: updatedUser.groupIds,
+        department: updatedUser.department,
       });
     } catch (error: any) {
       console.error("Update user error:", error);

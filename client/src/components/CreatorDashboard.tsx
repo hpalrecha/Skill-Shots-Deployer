@@ -94,6 +94,14 @@ export default function CreatorDashboard({
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [isUpdatingPassword, setIsUpdatingPassword] = useState(false);
 
+  // Edit user state
+  const [editingUser, setEditingUser] = useState<User | null>(null);
+  const [editUserName, setEditUserName] = useState('');
+  const [editUserEmail, setEditUserEmail] = useState('');
+  const [editUserRole, setEditUserRole] = useState<UserRole>(UserRole.Learner);
+  const [editUserDepartment, setEditUserDepartment] = useState('');
+  const [isUpdatingUser, setIsUpdatingUser] = useState(false);
+
   const startEditTopic = (topic: Topic) => {
     console.log('startEditTopic - topic.modules:', topic.modules);
     setEditTopicId(topic.id);
@@ -418,6 +426,56 @@ export default function CreatorDashboard({
       alert('Failed to update password');
     } finally {
       setIsUpdatingPassword(false);
+    }
+  };
+
+  const startEditUser = (user: User) => {
+    setEditingUser(user);
+    setEditUserName(user.name);
+    setEditUserEmail(user.email);
+    setEditUserRole(user.role);
+    setEditUserDepartment(user.department || '');
+  };
+
+  const handleSaveEditUser = async () => {
+    if (!editingUser) return;
+    if (!editUserName.trim() || !editUserEmail.trim()) {
+      alert('Name and email are required');
+      return;
+    }
+
+    setIsUpdatingUser(true);
+    try {
+      const response = await fetch(`/api/users/${editingUser.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          name: editUserName.trim(),
+          email: editUserEmail.trim(),
+          role: editUserRole,
+          department: editUserDepartment.trim() || undefined,
+        }),
+      });
+
+      if (response.ok) {
+        const updatedUser = await response.json();
+        onUpdateUser({
+          ...editingUser,
+          name: updatedUser.name,
+          email: updatedUser.email,
+          role: updatedUser.role,
+          department: editUserDepartment.trim() || undefined,
+        });
+        setEditingUser(null);
+      } else {
+        const error = await response.json();
+        alert(error.error || 'Failed to update user');
+      }
+    } catch (error) {
+      alert('Failed to update user');
+    } finally {
+      setIsUpdatingUser(false);
     }
   };
 
@@ -907,6 +965,9 @@ export default function CreatorDashboard({
                       >
                         {editingPasswordUserId === user.id ? 'Cancel' : 'Update Password'}
                       </Button>
+                      <Button variant="ghost" size="icon" onClick={() => startEditUser(user)} data-testid={`button-edit-user-${user.id}`}>
+                        <EditIcon className="h-4 w-4" />
+                      </Button>
                       <Button variant="ghost" size="icon" onClick={() => onDeleteUser(user.id)} className="text-destructive" data-testid={`button-delete-user-${user.id}`}>
                         <TrashIcon className="h-4 w-4" />
                       </Button>
@@ -1161,6 +1222,70 @@ export default function CreatorDashboard({
             <Button onClick={handleAiGenerate} disabled={isGenerating} data-testid="button-generate-course">
               {isGenerating ? <LoaderIcon className="animate-spin h-4 w-4 mr-2" /> : <SparklesIcon className="h-4 w-4 mr-2" />}
               {isGenerating ? 'Generating...' : 'Generate Course'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!editingUser} onOpenChange={(open) => !open && setEditingUser(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Edit User</DialogTitle>
+            <DialogDescription>Update user details below.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="edit-user-name">Name</Label>
+              <Input
+                id="edit-user-name"
+                value={editUserName}
+                onChange={(e) => setEditUserName(e.target.value)}
+                placeholder="Enter name"
+                data-testid="input-edit-user-name"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-user-email">Email</Label>
+              <Input
+                id="edit-user-email"
+                type="email"
+                value={editUserEmail}
+                onChange={(e) => setEditUserEmail(e.target.value)}
+                placeholder="Enter email"
+                data-testid="input-edit-user-email"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-user-role">Role</Label>
+              <Select value={editUserRole} onValueChange={(v) => setEditUserRole(v as UserRole)}>
+                <SelectTrigger id="edit-user-role" data-testid="select-edit-user-role">
+                  <SelectValue placeholder="Select role" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={UserRole.Learner}>Learner</SelectItem>
+                  <SelectItem value={UserRole.Creator}>Creator</SelectItem>
+                  <SelectItem value={UserRole.Admin}>Admin</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-user-department">Department</Label>
+              <Input
+                id="edit-user-department"
+                value={editUserDepartment}
+                onChange={(e) => setEditUserDepartment(e.target.value)}
+                placeholder="e.g., Sales, Engineering"
+                data-testid="input-edit-user-department"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditingUser(null)} disabled={isUpdatingUser}>
+              Cancel
+            </Button>
+            <Button onClick={handleSaveEditUser} disabled={isUpdatingUser} data-testid="button-save-edit-user">
+              {isUpdatingUser ? <LoaderIcon className="animate-spin h-4 w-4 mr-2" /> : <CheckIcon className="h-4 w-4 mr-2" />}
+              {isUpdatingUser ? 'Saving...' : 'Save Changes'}
             </Button>
           </DialogFooter>
         </DialogContent>
