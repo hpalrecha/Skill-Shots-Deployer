@@ -232,11 +232,13 @@ export default function TopicView({ topic, onMarkComplete, groups }: TopicViewPr
                           <FileTextIcon className="h-8 w-8 text-primary" />
                         </div>
                         <div className="flex-1">
-                          <span className="block font-bold text-foreground">Reference Document</span>
-                          <span className="block text-sm text-muted-foreground mt-0.5">{block.title || 'Document'}</span>
-                          {docHasDataUrl && (
-                            <Badge variant="secondary" className="mt-1 text-xs">Uploaded File</Badge>
-                          )}
+                          <span className="block font-bold text-foreground">{block.title || 'Document'}</span>
+                          <div className="flex gap-2 mt-1">
+                            <Badge variant="outline" className="text-xs">Reference Document</Badge>
+                            {docHasDataUrl && (
+                              <Badge variant="secondary" className="text-xs">Uploaded File</Badge>
+                            )}
+                          </div>
                         </div>
                         <div className="flex gap-2">
                           {docHasDataUrl && (
@@ -476,11 +478,13 @@ export default function TopicView({ topic, onMarkComplete, groups }: TopicViewPr
                         <FileTextIcon className="h-8 w-8 text-primary" />
                       </div>
                       <div className="flex-1">
-                        <span className="block font-bold text-foreground">Reference Document</span>
-                        <span className="block text-sm text-muted-foreground mt-0.5">{block.title || 'Document'}</span>
-                        {hasDataUrl && (
-                          <Badge variant="secondary" className="mt-1 text-xs">Uploaded File</Badge>
-                        )}
+                        <span className="block font-bold text-foreground">{block.title || 'Document'}</span>
+                        <div className="flex gap-2 mt-1">
+                          <Badge variant="outline" className="text-xs">Reference Document</Badge>
+                          {hasDataUrl && (
+                            <Badge variant="secondary" className="text-xs">Uploaded File</Badge>
+                          )}
+                        </div>
                       </div>
                       <div className="flex gap-2">
                         {hasDataUrl && (
