@@ -1270,13 +1270,17 @@ export default function CreatorDashboard({
             </div>
             <div className="space-y-2">
               <Label htmlFor="edit-user-department">Department</Label>
-              <Input
-                id="edit-user-department"
-                value={editUserDepartment}
-                onChange={(e) => setEditUserDepartment(e.target.value)}
-                placeholder="e.g., Sales, Engineering"
-                data-testid="input-edit-user-department"
-              />
+              <Select value={editUserDepartment || '_none_'} onValueChange={(v) => setEditUserDepartment(v === '_none_' ? '' : v)}>
+                <SelectTrigger id="edit-user-department" data-testid="select-edit-user-department">
+                  <SelectValue placeholder="Select department" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="_none_">No Department</SelectItem>
+                  {availableDepartments.map(dept => (
+                    <SelectItem key={dept} value={dept}>{dept}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
           <DialogFooter>
