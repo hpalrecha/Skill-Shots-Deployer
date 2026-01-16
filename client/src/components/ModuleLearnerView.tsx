@@ -14,9 +14,10 @@ import {
   LoaderIcon, 
   VideoIcon,
   CheckCircleIcon,
-  SparklesIcon
+  SparklesIcon,
+  FileTextIcon
 } from './icons';
-import { Lock, CheckCircle2, Play, Target, BookOpen } from 'lucide-react';
+import { Lock, CheckCircle2, Play, Target, BookOpen, Eye, Download, ExternalLink } from 'lucide-react';
 import ModuleQuiz from './ModuleQuiz';
 import CourseCompletionModal from './CourseCompletionModal';
 
@@ -246,7 +247,151 @@ export default function ModuleLearnerView({
             {block.title && (
               <p className="text-sm text-muted-foreground text-center mt-2">{block.title}</p>
             )}
+            <div className="flex justify-center gap-2 mt-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  const newWindow = window.open();
+                  if (newWindow) {
+                    newWindow.document.write(`
+                      <html>
+                        <head><title>${block.title || 'Image'}</title></head>
+                        <body style="margin:0;padding:20px;background:#000;display:flex;justify-content:center;align-items:center;min-height:100vh;">
+                          <img src="${block.content}" style="max-width:100%;max-height:100vh;object-fit:contain;" />
+                        </body>
+                      </html>
+                    `);
+                  }
+                }}
+                data-testid={`button-view-image-${index}`}
+              >
+                <Eye className="h-4 w-4 mr-1" />
+                View Full
+              </Button>
+            </div>
           </div>
+        );
+      case ContentType.Video:
+        const isYouTube = block.content.includes('youtube.com') || block.content.includes('youtu.be');
+        const hasVideoDataUrl = block.content?.startsWith('data:');
+        return (
+          <Card key={index} className="my-4 p-4 bg-muted/50">
+            <h4 className="flex items-center gap-2 font-bold text-foreground mb-3">
+              <VideoIcon className="h-5 w-5 text-primary" /> 
+              {block.title || 'Video'}
+            </h4>
+            <div className="aspect-video mb-4">
+              {isYouTube ? (
+                <iframe 
+                  src={block.content} 
+                  title={block.title || 'Video'} 
+                  frameBorder="0" 
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+                  allowFullScreen 
+                  className="rounded-lg shadow-md w-full h-full"
+                ></iframe>
+              ) : hasVideoDataUrl ? (
+                <video 
+                  src={block.content} 
+                  controls 
+                  className="rounded-lg w-full h-full"
+                >
+                  Your browser does not support the video tag.
+                </video>
+              ) : (
+                <div className="flex flex-col items-center justify-center h-full bg-muted rounded-lg p-4 gap-3">
+                  <VideoIcon className="h-12 w-12 text-muted-foreground" />
+                  <p className="text-muted-foreground text-sm text-center">{block.title || 'Video file'}</p>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => window.open(block.content, '_blank')}
+                    data-testid={`button-open-video-${index}`}
+                  >
+                    <ExternalLink className="h-4 w-4 mr-1" />
+                    Open Video
+                  </Button>
+                </div>
+              )}
+            </div>
+          </Card>
+        );
+      case ContentType.Document:
+        const isPdf = block.content?.startsWith('data:application/pdf') || block.title?.toLowerCase().endsWith('.pdf');
+        const hasDataUrl = block.content?.startsWith('data:');
+        return (
+          <Card key={index} className="my-4 p-4">
+            <div className="flex items-center gap-4">
+              <div className="p-3 bg-primary/10 rounded-lg">
+                <FileTextIcon className="h-8 w-8 text-primary" />
+              </div>
+              <div className="flex-1">
+                <span className="block font-bold text-foreground">Reference Document</span>
+                <span className="block text-sm text-muted-foreground mt-0.5">{block.title || 'Document'}</span>
+                {hasDataUrl && (
+                  <Badge variant="secondary" className="mt-1 text-xs">Uploaded File</Badge>
+                )}
+              </div>
+              <div className="flex gap-2">
+                {hasDataUrl && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      const newWindow = window.open();
+                      if (newWindow) {
+                        newWindow.document.write(`
+                          <html>
+                            <head><title>${block.title || 'Document'}</title></head>
+                            <body style="margin:0;padding:0;">
+                              ${isPdf 
+                                ? `<embed src="${block.content}" type="application/pdf" width="100%" height="100%" style="position:absolute;inset:0;" />`
+                                : `<img src="${block.content}" style="max-width:100%;height:auto;" />`
+                              }
+                            </body>
+                          </html>
+                        `);
+                      }
+                    }}
+                    data-testid={`button-view-doc-${index}`}
+                  >
+                    <Eye className="h-4 w-4 mr-1" />
+                    View
+                  </Button>
+                )}
+                {hasDataUrl && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      const link = document.createElement('a');
+                      link.href = block.content;
+                      link.download = block.title || 'document';
+                      document.body.appendChild(link);
+                      link.click();
+                      document.body.removeChild(link);
+                    }}
+                    data-testid={`button-download-doc-${index}`}
+                  >
+                    <Download className="h-4 w-4 mr-1" />
+                    Download
+                  </Button>
+                )}
+                {!hasDataUrl && block.content && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => window.open(block.content, '_blank')}
+                    data-testid={`button-open-doc-${index}`}
+                  >
+                    <ExternalLink className="h-4 w-4 mr-1" />
+                    Open
+                  </Button>
+                )}
+              </div>
+            </div>
+          </Card>
         );
       default:
         return null;
