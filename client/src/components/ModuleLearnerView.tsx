@@ -269,6 +269,24 @@ export default function ModuleLearnerView({
                 <Eye className="h-4 w-4 mr-1" />
                 View Full
               </Button>
+              {block.content?.startsWith('data:') && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    const link = document.createElement('a');
+                    link.href = block.content;
+                    link.download = block.title || 'image.png';
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                  }}
+                  data-testid={`button-download-image-${index}`}
+                >
+                  <Download className="h-4 w-4 mr-1" />
+                  Download
+                </Button>
+              )}
             </div>
           </div>
         );
@@ -315,6 +333,26 @@ export default function ModuleLearnerView({
                 </div>
               )}
             </div>
+            {hasVideoDataUrl && (
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    const link = document.createElement('a');
+                    link.href = block.content;
+                    link.download = block.title || 'video.mp4';
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                  }}
+                  data-testid={`button-download-video-${index}`}
+                >
+                  <Download className="h-4 w-4 mr-1" />
+                  Download Video
+                </Button>
+              </div>
+            )}
           </Card>
         );
       case ContentType.Document:

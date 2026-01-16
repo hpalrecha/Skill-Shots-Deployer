@@ -124,6 +124,7 @@ export default function TopicView({ topic, onMarkComplete, groups }: TopicViewPr
               case ContentType.Paragraph:
                 return <p key={index} className="whitespace-pre-line leading-relaxed text-foreground">{block.content}</p>;
               case ContentType.Image:
+                const hasImageDataUrl = block.content?.startsWith('data:');
                 return (
                   <Card key={index} className="my-8 p-4">
                     <div className="relative">
@@ -150,6 +151,24 @@ export default function TopicView({ topic, onMarkComplete, groups }: TopicViewPr
                           <Eye className="h-4 w-4 mr-1" />
                           View Full
                         </Button>
+                        {hasImageDataUrl && (
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            onClick={() => {
+                              const link = document.createElement('a');
+                              link.href = block.content;
+                              link.download = block.title || 'image.png';
+                              document.body.appendChild(link);
+                              link.click();
+                              document.body.removeChild(link);
+                            }}
+                            data-testid={`button-download-image-${index}`}
+                          >
+                            <Download className="h-4 w-4 mr-1" />
+                            Download
+                          </Button>
+                        )}
                       </div>
                     </div>
                     {block.title && <p className="text-center text-sm text-muted-foreground mt-3">{block.title}</p>}
@@ -158,6 +177,7 @@ export default function TopicView({ topic, onMarkComplete, groups }: TopicViewPr
               case ContentType.Video:
                 const videoId = block.content;
                 const isYouTube = block.content.includes('youtube.com') || block.content.includes('youtu.be');
+                const hasVideoDataUrl = block.content?.startsWith('data:');
                 return (
                   <Card key={index} className="my-8 p-4 bg-muted/50">
                     <h4 className="flex items-center gap-2 font-bold text-foreground mb-3">
@@ -174,10 +194,50 @@ export default function TopicView({ topic, onMarkComplete, groups }: TopicViewPr
                           allowFullScreen 
                           className="rounded-lg shadow-md w-full h-full"
                         ></iframe>
+                      ) : hasVideoDataUrl ? (
+                        <video 
+                          src={block.content} 
+                          controls 
+                          className="rounded-lg w-full h-full"
+                        >
+                          Your browser does not support the video tag.
+                        </video>
                       ) : (
-                        <div className="p-4 text-muted-foreground border border-border rounded bg-card">Video preview not available for raw file uploads in this demo view.</div>
+                        <div className="flex flex-col items-center justify-center h-full bg-muted rounded-lg p-4 gap-3">
+                          <VideoIcon className="h-12 w-12 text-muted-foreground" />
+                          <p className="text-muted-foreground text-sm text-center">{block.title || 'Video file'}</p>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => window.open(block.content, '_blank')}
+                            data-testid={`button-open-video-${index}`}
+                          >
+                            <ExternalLink className="h-4 w-4 mr-1" />
+                            Open Video
+                          </Button>
+                        </div>
                       )}
                     </div>
+                    {hasVideoDataUrl && (
+                      <div className="flex gap-2 mb-4">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            const link = document.createElement('a');
+                            link.href = block.content;
+                            link.download = block.title || 'video.mp4';
+                            document.body.appendChild(link);
+                            link.click();
+                            document.body.removeChild(link);
+                          }}
+                          data-testid={`button-download-video-${index}`}
+                        >
+                          <Download className="h-4 w-4 mr-1" />
+                          Download Video
+                        </Button>
+                      </div>
+                    )}
                     <div>
                       <Button
                         onClick={() => handleAnalyzeVideo(block)}
