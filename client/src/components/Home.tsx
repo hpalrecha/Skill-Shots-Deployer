@@ -49,9 +49,9 @@ export default function Home({ topics, currentUser, leaderboard }: HomeProps) {
   const userPoints = leaderboard.find(l => l.name === currentUser.name)?.points || 0;
 
   return (
-    <div className="space-y-8">
-      <div className="flex flex-col gap-2">
-        <h1 className="text-3xl font-bold text-foreground" data-testid="text-welcome">
+    <div className="space-y-6 sm:space-y-8">
+      <div className="flex flex-col gap-1 sm:gap-2">
+        <h1 className="text-2xl sm:text-3xl font-bold text-foreground" data-testid="text-welcome">
           Welcome back, {currentUser.name}!
         </h1>
         {organizationName && (
@@ -59,12 +59,12 @@ export default function Home({ topics, currentUser, leaderboard }: HomeProps) {
             {organizationName}
           </p>
         )}
-        <p className="text-muted-foreground">
+        <p className="text-sm sm:text-base text-muted-foreground">
           Continue your learning journey and stay ahead of the curve.
         </p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between gap-2 pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">Courses Available</CardTitle>
@@ -110,11 +110,11 @@ export default function Home({ topics, currentUser, leaderboard }: HomeProps) {
         </Card>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 space-y-6">
-          <h2 className="text-xl font-semibold text-foreground">Quick Access</h2>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
+        <div className="lg:col-span-2 space-y-4 sm:space-y-6">
+          <h2 className="text-lg sm:text-xl font-semibold text-foreground">Quick Access</h2>
           
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
             <Card className="hover-elevate cursor-pointer" onClick={() => setLocation('/courses')}>
               <CardHeader>
                 <div className="flex items-center justify-between">
@@ -159,9 +159,9 @@ export default function Home({ topics, currentUser, leaderboard }: HomeProps) {
           </div>
 
           {courses.length > 0 && (
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <h2 className="text-xl font-semibold text-foreground">Continue Learning</h2>
+            <div className="space-y-3 sm:space-y-4">
+              <div className="flex items-center justify-between gap-2">
+                <h2 className="text-lg sm:text-xl font-semibold text-foreground">Continue Learning</h2>
                 <Button variant="ghost" size="sm" onClick={() => setLocation('/courses')}>
                   View all
                   <ChevronRight className="h-4 w-4 ml-1" />
@@ -198,8 +198,8 @@ export default function Home({ topics, currentUser, leaderboard }: HomeProps) {
           <CompletedCoursesBadges />
         </div>
 
-        <div className="space-y-4">
-          <h2 className="text-xl font-semibold text-foreground">Leaderboard</h2>
+        <div className="space-y-3 sm:space-y-4">
+          <h2 className="text-lg sm:text-xl font-semibold text-foreground">Leaderboard</h2>
           <Leaderboard entries={leaderboard} currentUserId={currentUser.id} />
         </div>
       </div>

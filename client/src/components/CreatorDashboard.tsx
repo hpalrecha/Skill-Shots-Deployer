@@ -510,19 +510,19 @@ export default function CreatorDashboard({
 
   return (
     <div data-testid="card-creator-dashboard">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-foreground" data-testid="text-portal-title">{portalTitle}</h1>
-        <p className="text-muted-foreground">{portalDescription}</p>
+      <div className="mb-4 sm:mb-6">
+        <h1 className="text-xl sm:text-2xl font-bold text-foreground" data-testid="text-portal-title">{portalTitle}</h1>
+        <p className="text-sm sm:text-base text-muted-foreground">{portalDescription}</p>
       </div>
 
       <Card className="min-h-[80vh]">
-        <div className="p-6">
+        <div className="p-3 sm:p-6">
           {section === 'courses' && (
             !isEditingTopic ? (
               <div>
-                <div className="flex justify-between items-center gap-4 mb-6 flex-wrap">
-                  <h2 className="text-2xl font-bold text-foreground">Content Management</h2>
-                  <div className="flex gap-3 flex-wrap">
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-4 mb-4 sm:mb-6">
+                  <h2 className="text-xl sm:text-2xl font-bold text-foreground">Content Management</h2>
+                  <div className="flex gap-2 sm:gap-3 flex-wrap w-full sm:w-auto">
                     <Button
                       onClick={() => setShowAiModal(true)}
                       className="bg-gradient-to-r from-chart-3 to-primary"
@@ -538,9 +538,9 @@ export default function CreatorDashboard({
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
                   {topics.map(topic => (
-                    <Card key={topic.id} className="p-4 flex flex-col" data-testid={`card-creator-topic-${topic.id}`}>
+                    <Card key={topic.id} className="p-3 sm:p-4 flex flex-col" data-testid={`card-creator-topic-${topic.id}`}>
                       <div className="flex items-start justify-between gap-2 mb-2">
                         <div className="flex-1 min-w-0">
                           <h3 className="font-semibold text-foreground truncate">{topic.title}</h3>
@@ -564,10 +564,10 @@ export default function CreatorDashboard({
                 </div>
               </div>
             ) : (
-              <form onSubmit={handleSaveTopic} className="space-y-6">
-                <div className="flex justify-between items-center gap-4 flex-wrap">
-                  <h2 className="text-2xl font-bold text-foreground">{editTopicId ? 'Edit Course' : 'Create New Course'}</h2>
-                  <Button variant="outline" type="button" onClick={resetTopicForm} data-testid="button-cancel-edit">
+              <form onSubmit={handleSaveTopic} className="space-y-4 sm:space-y-6">
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-4">
+                  <h2 className="text-xl sm:text-2xl font-bold text-foreground">{editTopicId ? 'Edit Course' : 'Create New Course'}</h2>
+                  <Button variant="outline" type="button" onClick={resetTopicForm} className="w-full sm:w-auto" data-testid="button-cancel-edit">
                     <XIcon className="h-4 w-4 mr-2" /> Cancel
                   </Button>
                 </div>
@@ -864,16 +864,16 @@ export default function CreatorDashboard({
 
           {section === 'users' && (
             <div>
-              <div className="flex justify-between items-center gap-4 mb-6 flex-wrap">
-                <h2 className="text-2xl font-bold text-foreground">User Management</h2>
-                <Button onClick={() => setIsCreatingUser(true)} data-testid="button-add-user">
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-4 mb-4 sm:mb-6">
+                <h2 className="text-xl sm:text-2xl font-bold text-foreground">User Management</h2>
+                <Button onClick={() => setIsCreatingUser(true)} className="w-full sm:w-auto" data-testid="button-add-user">
                   <PlusIcon className="h-4 w-4 mr-2" />
                   Add User
                 </Button>
               </div>
 
               {isCreatingUser && (
-              <Card className="p-6 mb-6">
+              <Card className="p-3 sm:p-6 mb-4 sm:mb-6">
                 <form onSubmit={handleSaveUser} className="space-y-4">
                   <h3 className="text-lg font-semibold text-foreground">Create New User</h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
