@@ -484,18 +484,18 @@ export default function OrgAdminDashboard({ currentUser, section = 'overview' }:
   const learnerCount = members.filter(m => m.role === 'Learner').length;
 
   return (
-    <div className="p-6 space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+    <div className="p-3 sm:p-6 space-y-4 sm:space-y-6">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
         <div>
-          <div className="flex items-center gap-3">
-            <Building2 className="h-8 w-8 text-primary" />
-            <h1 className="text-2xl md:text-3xl font-bold" data-testid="text-org-name">{organization.name}</h1>
+          <div className="flex items-center gap-2 sm:gap-3">
+            <Building2 className="h-6 w-6 sm:h-8 sm:w-8 text-primary" />
+            <h1 className="text-xl sm:text-2xl md:text-3xl font-bold" data-testid="text-org-name">{organization.name}</h1>
           </div>
-          <p className="text-muted-foreground mt-1">Organization Administration</p>
+          <p className="text-muted-foreground mt-1 text-sm sm:text-base">Organization Administration</p>
         </div>
         {license && (
-          <Badge variant="secondary" className="text-sm">
-            <CreditCard className="h-4 w-4 mr-1" />
+          <Badge variant="secondary" className="text-xs sm:text-sm self-start sm:self-auto">
+            <CreditCard className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
             {license.planName} Plan
           </Badge>
         )}
@@ -503,7 +503,7 @@ export default function OrgAdminDashboard({ currentUser, section = 'overview' }:
 
       {section === 'overview' && (
         <>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+          <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-4 sm:mb-6">
             <Card>
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm font-medium text-muted-foreground">Total Members</CardTitle>
@@ -608,42 +608,46 @@ export default function OrgAdminDashboard({ currentUser, section = 'overview' }:
                   members.map((member) => (
                     <div
                       key={member.id}
-                      className="flex items-center justify-between p-4 border rounded-lg"
+                      className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 border rounded-lg gap-3"
                       data-testid={`member-row-${member.id}`}
                     >
-                      <div className="flex items-center gap-4">
-                        <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center">
-                          <UserIcon className="h-5 w-5 text-muted-foreground" />
+                      <div className="flex items-center gap-3 sm:gap-4 min-w-0">
+                        <div className="h-8 w-8 sm:h-10 sm:w-10 rounded-full bg-muted flex items-center justify-center flex-shrink-0">
+                          <UserIcon className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground" />
                         </div>
-                        <div>
-                          <p className="font-medium" data-testid={`text-member-name-${member.id}`}>{member.user.name}</p>
-                          <p className="text-sm text-muted-foreground">{member.user.email}</p>
+                        <div className="min-w-0 flex-1">
+                          <p className="font-medium truncate" data-testid={`text-member-name-${member.id}`}>{member.user.name}</p>
+                          <p className="text-xs sm:text-sm text-muted-foreground truncate">{member.user.email}</p>
                         </div>
                       </div>
-                      <div className="flex items-center gap-3">
-                        <Badge variant={getRoleBadgeVariant(member.role)} data-testid={`badge-member-role-${member.id}`}>
+                      <div className="flex items-center gap-2 sm:gap-3 justify-between sm:justify-end pl-11 sm:pl-0">
+                        <Badge variant={getRoleBadgeVariant(member.role)} className="text-xs" data-testid={`badge-member-role-${member.id}`}>
                           {member.role}
                         </Badge>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => {
-                            setSelectedMember(member);
-                            setIsEditMemberDialogOpen(true);
-                          }}
-                          data-testid={`button-edit-member-${member.id}`}
-                        >
-                          <Edit2 className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleRemoveMember(member.userId)}
-                          disabled={member.user.id === currentUser.id}
-                          data-testid={`button-remove-member-${member.id}`}
-                        >
-                          <Trash2 className="h-4 w-4 text-destructive" />
-                        </Button>
+                        <div className="flex items-center gap-1">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8"
+                            onClick={() => {
+                              setSelectedMember(member);
+                              setIsEditMemberDialogOpen(true);
+                            }}
+                            data-testid={`button-edit-member-${member.id}`}
+                          >
+                            <Edit2 className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8"
+                            onClick={() => handleRemoveMember(member.userId)}
+                            disabled={member.user.id === currentUser.id}
+                            data-testid={`button-remove-member-${member.id}`}
+                          >
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          </Button>
+                        </div>
                       </div>
                     </div>
                   ))
