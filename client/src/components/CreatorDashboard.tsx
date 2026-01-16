@@ -67,6 +67,8 @@ export default function CreatorDashboard({
   const [shareMode, setShareMode] = useState<'all' | 'departments' | 'users'>('all');
   const [selectedGroups, setSelectedGroups] = useState<string[]>([]);
   const [selectedUsers, setSelectedUsers] = useState<string[]>([]);
+  const [selectedDepartments, setSelectedDepartments] = useState<string[]>([]);
+  const [availableDepartments, setAvailableDepartments] = useState<string[]>([]);
 
   const [showAiModal, setShowAiModal] = useState(false);
   const [aiPrompt, setAiPrompt] = useState('');
@@ -113,18 +115,28 @@ export default function CreatorDashboard({
     });
     setUploadModeMap(uploadModes);
 
-    if (topic.sharedWith.includes('group-3') && groups.find(g => g.id === 'group-3')?.name === 'All Employees') {
+    // Determine sharing mode from topic data
+    const allEmployeesGroup = groups.find(g => g.name === 'All Employees');
+    if (allEmployeesGroup && topic.sharedWith.includes(allEmployeesGroup.id)) {
       setShareMode('all');
+      setSelectedGroups([]);
+      setSelectedUsers([]);
+      setSelectedDepartments([]);
+    } else if (topic.sharedWithDepartments && topic.sharedWithDepartments.length > 0) {
+      setShareMode('departments');
+      setSelectedDepartments(topic.sharedWithDepartments);
       setSelectedGroups([]);
       setSelectedUsers([]);
     } else if (topic.sharedWithUsers && topic.sharedWithUsers.length > 0) {
       setShareMode('users');
       setSelectedUsers(topic.sharedWithUsers);
-      setSelectedGroups(topic.sharedWith);
+      setSelectedGroups([]);
+      setSelectedDepartments([]);
     } else {
-      setShareMode('departments');
-      setSelectedGroups(topic.sharedWith);
+      setShareMode('all');
+      setSelectedGroups([]);
       setSelectedUsers([]);
+      setSelectedDepartments([]);
     }
 
     setIsEditingTopic(true);
@@ -144,9 +156,27 @@ export default function CreatorDashboard({
     setShareMode('all');
     setSelectedGroups([]);
     setSelectedUsers([]);
+    setSelectedDepartments([]);
     setAiPrompt('');
     setAiResources([]);
   };
+
+  // Fetch available departments from the organization
+  useEffect(() => {
+    const fetchDepartments = async () => {
+      if (!currentUser?.organizationId) return;
+      try {
+        const response = await fetch(`/api/organizations/${currentUser.organizationId}/departments`);
+        if (response.ok) {
+          const depts = await response.json();
+          setAvailableDepartments(depts);
+        }
+      } catch (error) {
+        console.error('Failed to fetch departments:', error);
+      }
+    };
+    fetchDepartments();
+  }, [currentUser?.organizationId]);
 
   const handleSaveTopic = (e: React.FormEvent) => {
     e.preventDefault();
@@ -156,12 +186,13 @@ export default function CreatorDashboard({
 
     let finalSharedWithGroups: string[] = [];
     let finalSharedWithUsers: string[] = [];
+    let finalSharedWithDepartments: string[] = [];
 
     if (shareMode === 'all') {
       const allGroup = groups.find(g => g.name === 'All Employees');
       if (allGroup) finalSharedWithGroups = [allGroup.id];
     } else if (shareMode === 'departments') {
-      finalSharedWithGroups = selectedGroups;
+      finalSharedWithDepartments = selectedDepartments;
     } else if (shareMode === 'users') {
       finalSharedWithUsers = selectedUsers;
     }
@@ -178,6 +209,7 @@ export default function CreatorDashboard({
       modules: courseModules.length > 0 ? courseModules : undefined,
       sharedWith: finalSharedWithGroups,
       sharedWithUsers: finalSharedWithUsers,
+      sharedWithDepartments: finalSharedWithDepartments,
       isSop: isSop
     };
 
@@ -693,22 +725,27 @@ export default function CreatorDashboard({
 
                   {shareMode === 'departments' && (
                     <div className="flex gap-2 flex-wrap">
-                      {groups.filter(g => g.name !== 'All Employees').map(group => (
-                        <Badge
-                          key={group.id}
-                          variant={selectedGroups.includes(group.id) ? 'default' : 'outline'}
-                          className="cursor-pointer"
-                          onClick={() => {
-                            if (selectedGroups.includes(group.id)) {
-                              setSelectedGroups(selectedGroups.filter(g => g !== group.id));
-                            } else {
-                              setSelectedGroups([...selectedGroups, group.id]);
-                            }
-                          }}
-                        >
-                          {group.name}
-                        </Badge>
-                      ))}
+                      {availableDepartments.length > 0 ? (
+                        availableDepartments.map(dept => (
+                          <Badge
+                            key={dept}
+                            variant={selectedDepartments.includes(dept) ? 'default' : 'outline'}
+                            className="cursor-pointer"
+                            onClick={() => {
+                              if (selectedDepartments.includes(dept)) {
+                                setSelectedDepartments(selectedDepartments.filter(d => d !== dept));
+                              } else {
+                                setSelectedDepartments([...selectedDepartments, dept]);
+                              }
+                            }}
+                            data-testid={`badge-department-${dept}`}
+                          >
+                            {dept}
+                          </Badge>
+                        ))
+                      ) : (
+                        <p className="text-sm text-muted-foreground">No departments available. Add departments to users first.</p>
+                      )}
                     </div>
                   )}
 
