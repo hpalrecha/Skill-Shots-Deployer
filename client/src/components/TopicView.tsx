@@ -172,6 +172,19 @@ export default function TopicView({ topic, onMarkComplete, groups }: TopicViewPr
                 case ContentType.Video:
                   const vidIsYouTube = block.content.includes('youtube.com') || block.content.includes('youtu.be');
                   const vidHasDataUrl = block.content?.startsWith('data:');
+                  // Convert YouTube URLs to embed format
+                  const getYouTubeEmbedUrl = (url: string) => {
+                    // Already an embed URL
+                    if (url.includes('/embed/')) return url;
+                    // youtu.be short URL
+                    const shortMatch = url.match(/youtu\.be\/([a-zA-Z0-9_-]+)/);
+                    if (shortMatch) return `https://www.youtube.com/embed/${shortMatch[1]}`;
+                    // Regular youtube.com/watch URL
+                    const watchMatch = url.match(/[?&]v=([a-zA-Z0-9_-]+)/);
+                    if (watchMatch) return `https://www.youtube.com/embed/${watchMatch[1]}`;
+                    return url;
+                  };
+                  const vidEmbedUrl = vidIsYouTube ? getYouTubeEmbedUrl(block.content) : block.content;
                   return (
                     <Card key={index} className="my-8 p-4 bg-muted/50">
                       <h4 className="flex items-center gap-2 font-bold text-foreground mb-3">
@@ -181,7 +194,7 @@ export default function TopicView({ topic, onMarkComplete, groups }: TopicViewPr
                       <div className="aspect-video mb-4">
                         {vidIsYouTube ? (
                           <iframe 
-                            src={block.content} 
+                            src={vidEmbedUrl} 
                             title={block.title || 'Video'} 
                             frameBorder="0" 
                             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
