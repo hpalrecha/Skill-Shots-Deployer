@@ -4,7 +4,8 @@ import { Topic, User, LeaderboardEntry, TopicStatus } from '../types';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
-import { BookOpen, ClipboardList, Trophy, TrendingUp, ChevronRight, Target, Award } from 'lucide-react';
+import { BookOpen, ClipboardList, Trophy, TrendingUp, ChevronRight, Target, Award, CheckCircle2, RotateCcw } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
 import Leaderboard from './Leaderboard';
 import CompletedCoursesBadges from './CompletedCoursesBadges';
 
@@ -158,7 +159,7 @@ export default function Home({ topics, currentUser, leaderboard }: HomeProps) {
             </Card>
           </div>
 
-          {courses.length > 0 && (
+          {courses.filter(c => c.status !== TopicStatus.Completed).length > 0 && (
             <div className="space-y-3 sm:space-y-4">
               <div className="flex items-center justify-between gap-2">
                 <h2 className="text-lg sm:text-xl font-semibold text-foreground">Continue Learning</h2>
@@ -188,6 +189,106 @@ export default function Home({ topics, currentUser, leaderboard }: HomeProps) {
                         <p className="text-sm text-muted-foreground">{course.category} - {course.readTime} min</p>
                       </div>
                       <ChevronRight className="h-5 w-5 text-muted-foreground flex-shrink-0" />
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {courses.filter(c => c.status === TopicStatus.Completed).length > 0 && (
+            <div className="space-y-3 sm:space-y-4">
+              <div className="flex items-center justify-between gap-2">
+                <h2 className="text-lg sm:text-xl font-semibold text-foreground flex items-center gap-2">
+                  <CheckCircle2 className="h-5 w-5 text-green-500" />
+                  Completed Courses
+                </h2>
+                <Button variant="ghost" size="sm" onClick={() => setLocation('/courses')}>
+                  View all
+                  <ChevronRight className="h-4 w-4 ml-1" />
+                </Button>
+              </div>
+              
+              <div className="grid grid-cols-1 gap-3">
+                {courses.filter(c => c.status === TopicStatus.Completed).slice(0, 3).map(course => (
+                  <Card 
+                    key={course.id} 
+                    className="hover-elevate cursor-pointer"
+                    onClick={() => setLocation(`/topic/${course.id}`)}
+                    data-testid={`card-completed-course-${course.id}`}
+                  >
+                    <CardContent className="flex items-center gap-4 p-4">
+                      <div className="w-16 h-16 rounded-md overflow-hidden flex-shrink-0 relative">
+                        <img 
+                          src={course.imageUrl} 
+                          alt={course.title}
+                          className="w-full h-full object-cover"
+                        />
+                        <div className="absolute inset-0 bg-green-500/20 flex items-center justify-center">
+                          <CheckCircle2 className="h-6 w-6 text-green-500" />
+                        </div>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <h3 className="font-medium text-foreground truncate">{course.title}</h3>
+                        <div className="flex items-center gap-2 mt-1">
+                          <Badge variant="outline" className="text-xs text-green-600 border-green-300">Completed</Badge>
+                          <span className="text-sm text-muted-foreground">{course.readTime} min</span>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1 text-muted-foreground flex-shrink-0">
+                        <RotateCcw className="h-4 w-4" />
+                        <span className="text-xs hidden sm:inline">Revisit</span>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {sops.filter(s => s.status === TopicStatus.Completed).length > 0 && (
+            <div className="space-y-3 sm:space-y-4">
+              <div className="flex items-center justify-between gap-2">
+                <h2 className="text-lg sm:text-xl font-semibold text-foreground flex items-center gap-2">
+                  <CheckCircle2 className="h-5 w-5 text-green-500" />
+                  Completed SOPs
+                </h2>
+                <Button variant="ghost" size="sm" onClick={() => setLocation('/sops')}>
+                  View all
+                  <ChevronRight className="h-4 w-4 ml-1" />
+                </Button>
+              </div>
+              
+              <div className="grid grid-cols-1 gap-3">
+                {sops.filter(s => s.status === TopicStatus.Completed).slice(0, 3).map(sop => (
+                  <Card 
+                    key={sop.id} 
+                    className="hover-elevate cursor-pointer"
+                    onClick={() => setLocation(`/topic/${sop.id}`)}
+                    data-testid={`card-completed-sop-${sop.id}`}
+                  >
+                    <CardContent className="flex items-center gap-4 p-4">
+                      <div className="w-16 h-16 rounded-md overflow-hidden flex-shrink-0 relative">
+                        <img 
+                          src={sop.imageUrl} 
+                          alt={sop.title}
+                          className="w-full h-full object-cover"
+                        />
+                        <div className="absolute inset-0 bg-green-500/20 flex items-center justify-center">
+                          <CheckCircle2 className="h-6 w-6 text-green-500" />
+                        </div>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <h3 className="font-medium text-foreground truncate">{sop.title}</h3>
+                        <div className="flex items-center gap-2 mt-1">
+                          <Badge variant="outline" className="text-xs text-green-600 border-green-300">Reviewed</Badge>
+                          <span className="text-sm text-muted-foreground">{sop.readTime} min</span>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1 text-muted-foreground flex-shrink-0">
+                        <RotateCcw className="h-4 w-4" />
+                        <span className="text-xs hidden sm:inline">Revisit</span>
+                      </div>
                     </CardContent>
                   </Card>
                 ))}
