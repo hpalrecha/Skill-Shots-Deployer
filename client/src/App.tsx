@@ -38,21 +38,46 @@ function App() {
   const [location, setLocation] = useLocation();
 
   const fetchData = useCallback(async () => {
+    if (!currentUser) return;
     setIsLoadingData(true);
     try {
-      const [topicsRes, groupsRes, categoriesRes, leaderboardRes, usersRes] = await Promise.all([
+      const [topicsRes, groupsRes, categoriesRes, leaderboardRes, usersRes, progressRes, completionsRes] = await Promise.all([
         fetch('/api/topics', { credentials: 'include' }),
         fetch('/api/groups', { credentials: 'include' }),
         fetch('/api/categories', { credentials: 'include' }),
         fetch('/api/leaderboard', { credentials: 'include' }),
         fetch('/api/users', { credentials: 'include' }),
+        fetch(`/api/progress/${currentUser.id}`, { credentials: 'include' }),
+        fetch('/api/course-completions/user', { credentials: 'include' }),
       ]);
+
+      const progressMap: Record<string, string> = {};
+      if (progressRes.ok) {
+        const progressData = await progressRes.json();
+        if (Array.isArray(progressData)) {
+          progressData.forEach((p: any) => {
+            if (p.topicId && p.status) {
+              progressMap[p.topicId] = p.status;
+            }
+          });
+        }
+      }
+      if (completionsRes.ok) {
+        const completionsData = await completionsRes.json();
+        if (Array.isArray(completionsData)) {
+          completionsData.forEach((c: any) => {
+            if (c.topicId) {
+              progressMap[c.topicId] = 'Completed';
+            }
+          });
+        }
+      }
 
       if (topicsRes.ok) {
         const topicsData = await topicsRes.json();
         setTopics(topicsData.map((t: any) => ({
           ...t,
-          status: TopicStatus.Pending,
+          status: progressMap[t.id] === 'Completed' ? TopicStatus.Completed : TopicStatus.Pending,
           sharedWith: t.sharedWith || [],
           sharedWithUsers: t.sharedWithUsers || [],
           sharedWithDepartments: t.sharedWithDepartments || [],
@@ -79,7 +104,7 @@ function App() {
     } finally {
       setIsLoadingData(false);
     }
-  }, []);
+  }, [currentUser]);
 
   useEffect(() => {
     const checkAuth = async () => {

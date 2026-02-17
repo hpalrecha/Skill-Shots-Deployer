@@ -780,6 +780,14 @@ export class DatabaseStorage implements IStorage {
 
       await this.updateLeaderboardPoints(userId, 100);
 
+      await this.createOrUpdateProgress({
+        userId,
+        topicId,
+        status: 'Completed',
+        quizScore: avgScore,
+        quizTotal: 100,
+      });
+
       return { completed: true, completion, isNew: true };
     }
 
