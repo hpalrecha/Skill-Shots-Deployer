@@ -1107,6 +1107,8 @@ Requirements:
         email: user.email,
         role: user.role,
         groupIds: user.groupIds,
+        department: user.department,
+        organizationId: user.organizationId,
       });
     } catch (error: any) {
       console.error("Login error:", error);
@@ -1266,6 +1268,8 @@ Requirements:
         email: user.email,
         role: user.role,
         groupIds: user.groupIds,
+        department: user.department,
+        organizationId: user.organizationId,
       });
     } catch (error: any) {
       console.error("Auth check error:", error);

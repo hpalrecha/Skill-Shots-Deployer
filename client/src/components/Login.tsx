@@ -90,6 +90,8 @@ export default function Login({ onLogin }: LoginProps) {
         email: data.email,
         role: data.role as UserRole,
         groupIds: data.groupIds || [],
+        department: data.department || undefined,
+        organizationId: data.organizationId || undefined,
       });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Invalid credentials');

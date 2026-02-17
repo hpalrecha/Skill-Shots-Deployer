@@ -118,6 +118,8 @@ function App() {
             email: userData.email,
             role: userData.role,
             groupIds: userData.groupIds || [],
+            department: userData.department || undefined,
+            organizationId: userData.organizationId || undefined,
           });
         }
       } catch (err) {
@@ -434,21 +436,20 @@ function App() {
     }
     
     return topics.filter(topic => {
-      // Check if shared with this specific user
+      if (topic.status === TopicStatus.Completed) {
+        return true;
+      }
       if (topic.sharedWithUsers && topic.sharedWithUsers.includes(currentUser.id)) {
         return true;
       }
-      // Check if shared with user's department
       if (topic.sharedWithDepartments && topic.sharedWithDepartments.length > 0 && currentUser.department) {
         if (topic.sharedWithDepartments.includes(currentUser.department)) {
           return true;
         }
       }
-      // Check if shared with user's groups
       if (topic.sharedWith && topic.sharedWith.some(groupId => currentUser.groupIds.includes(groupId))) {
         return true;
       }
-      // Check if shared with "All Employees" group
       const allEmployeesGroup = groups.find(g => g.name === 'All Employees');
       if (allEmployeesGroup && topic.sharedWith && topic.sharedWith.includes(allEmployeesGroup.id)) {
         return true;
