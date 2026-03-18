@@ -1614,7 +1614,8 @@ Requirements:
         topics = await storage.getAllTopics();
       }
       
-      res.json(topics);
+      const topicsMetadata = topics.map(({ content, ...rest }) => rest);
+      res.json(topicsMetadata);
     } catch (error: any) {
       console.error("Get topics error:", error);
       res.status(500).json({ error: error.message || "Failed to get topics" });

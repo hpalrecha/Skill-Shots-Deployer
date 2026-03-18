@@ -102,20 +102,25 @@ export default function CreatorDashboard({
   const [editUserDepartment, setEditUserDepartment] = useState('');
   const [isUpdatingUser, setIsUpdatingUser] = useState(false);
 
-  const startEditTopic = (topic: Topic) => {
+  const startEditTopic = async (topic: Topic) => {
     console.log('startEditTopic - topic.modules:', topic.modules);
-    setEditTopicId(topic.id);
-    setTopicTitle(topic.title);
-    setTopicCategory(topic.category);
-    setTopicReadTime(topic.readTime);
-    setTopicImage(topic.imageUrl);
-    setIsSop(topic.isSop || false);
-    setContentBlocks([...topic.content]);
-    setCourseModules(topic.modules ? [...topic.modules] : []);
+    let fullTopic = topic;
+    try {
+      const res = await fetch(`/api/topics/${topic.id}`, { credentials: 'include' });
+      if (res.ok) fullTopic = await res.json();
+    } catch {}
+    setEditTopicId(fullTopic.id);
+    setTopicTitle(fullTopic.title);
+    setTopicCategory(fullTopic.category);
+    setTopicReadTime(fullTopic.readTime);
+    setTopicImage(fullTopic.imageUrl);
+    setIsSop(fullTopic.isSop || false);
+    setContentBlocks([...(fullTopic.content || [])]);
+    setCourseModules(fullTopic.modules ? [...fullTopic.modules] : []);
     
     // Set upload mode for blocks that have base64 data (uploaded files)
     const uploadModes: Record<number, boolean> = {};
-    topic.content.forEach((block, index) => {
+    (fullTopic.content || []).forEach((block, index) => {
       if ((block.type === ContentType.Image || block.type === ContentType.Document) && 
           block.content?.startsWith('data:')) {
         uploadModes[index] = true;

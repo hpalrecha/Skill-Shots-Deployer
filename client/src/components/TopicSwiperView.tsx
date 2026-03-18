@@ -23,12 +23,23 @@ export default function TopicSwiperView({
 }: TopicSwiperViewProps) {
   const [currentIndex, setCurrentIndex] = useState(initialTopicIndex);
   const [, setLocation] = useLocation();
+  const [fullTopic, setFullTopic] = useState<Topic | null>(null);
+  const [isLoadingTopic, setIsLoadingTopic] = useState(false);
   
   const currentTopic = topics[currentIndex];
   
   useEffect(() => {
     if (currentTopic) {
       setLocation(`/topic/${currentTopic.id}`, { replace: true });
+      setFullTopic(null);
+      setIsLoadingTopic(true);
+      fetch(`/api/topics/${currentTopic.id}`, { credentials: 'include' })
+        .then(res => res.ok ? res.json() : null)
+        .then(data => {
+          if (data) setFullTopic({ ...currentTopic, ...data });
+        })
+        .catch(() => {})
+        .finally(() => setIsLoadingTopic(false));
     }
   }, [currentIndex, currentTopic, setLocation]);
 
@@ -103,12 +114,18 @@ export default function TopicSwiperView({
       <div className="flex-1 overflow-y-auto">
         <div className="min-h-full flex items-start justify-center p-4 pt-6">
           <div className="w-full max-w-4xl mx-auto">
-            <TopicView
-              key={currentTopic.id}
-              topic={currentTopic}
-              onMarkComplete={onMarkComplete}
-              groups={groups}
-            />
+            {isLoadingTopic ? (
+              <div className="flex items-center justify-center py-24">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+              </div>
+            ) : (
+              <TopicView
+                key={currentTopic.id}
+                topic={fullTopic || currentTopic}
+                onMarkComplete={onMarkComplete}
+                groups={groups}
+              />
+            )}
           </div>
         </div>
       </div>

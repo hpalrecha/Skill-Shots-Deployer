@@ -51,8 +51,8 @@ export default function Dashboard({
 
       const lowerSearch = searchTerm.toLowerCase();
       const titleMatch = topic.title.toLowerCase().includes(lowerSearch);
-      const contentMatch = topic.content.some(block =>
-        block.type === ContentType.Paragraph && block.content.toLowerCase().includes(lowerSearch)
+      const contentMatch = (topic.content || []).some(block =>
+        block.type === ContentType.Paragraph && block.content?.toLowerCase().includes(lowerSearch)
       );
       const matchesSearch = titleMatch || contentMatch;
 
