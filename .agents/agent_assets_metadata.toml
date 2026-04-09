@@ -1,0 +1,8 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "OFVXFuzupSKv_qwObxBGS"
+uri = "file://HANDOVER.md"
+type = "text"
+title = "SkillShots Handover Guide"
