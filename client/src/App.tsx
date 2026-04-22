@@ -436,22 +436,39 @@ function App() {
     }
     
     return topics.filter(topic => {
+      // Always show completed topics
       if (topic.status === TopicStatus.Completed) {
         return true;
       }
+      // Shared directly with this user
       if (topic.sharedWithUsers && topic.sharedWithUsers.includes(currentUser.id)) {
         return true;
       }
+      // Shared with user's department
       if (topic.sharedWithDepartments && topic.sharedWithDepartments.length > 0 && currentUser.department) {
         if (topic.sharedWithDepartments.includes(currentUser.department)) {
           return true;
         }
       }
-      if (topic.sharedWith && topic.sharedWith.some(groupId => currentUser.groupIds.includes(groupId))) {
-        return true;
+      // Shared with a group the user belongs to
+      if (topic.sharedWith && topic.sharedWith.length > 0) {
+        if (topic.sharedWith.some(groupId => currentUser.groupIds.includes(groupId))) {
+          return true;
+        }
+        // "All Employees" group — visible regardless of individual membership
+        const allEmployeesGroup = groups.find(g => g.name === 'All Employees');
+        if (allEmployeesGroup && topic.sharedWith.includes(allEmployeesGroup.id)) {
+          return true;
+        }
+        // Has explicit group restrictions but user doesn't match — hide
+        return false;
       }
-      const allEmployeesGroup = groups.find(g => g.name === 'All Employees');
-      if (allEmployeesGroup && topic.sharedWith && topic.sharedWith.includes(allEmployeesGroup.id)) {
+      // No sharing restrictions set at all = visible to all org members
+      if (
+        (!topic.sharedWith || topic.sharedWith.length === 0) &&
+        (!topic.sharedWithUsers || topic.sharedWithUsers.length === 0) &&
+        (!topic.sharedWithDepartments || topic.sharedWithDepartments.length === 0)
+      ) {
         return true;
       }
       return false;

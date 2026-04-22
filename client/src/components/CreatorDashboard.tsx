@@ -215,8 +215,7 @@ export default function CreatorDashboard({
     let finalSharedWithDepartments: string[] = [];
 
     if (shareMode === 'all') {
-      const allGroup = groups.find(g => g.name === 'All Employees');
-      if (allGroup) finalSharedWithGroups = [allGroup.id];
+      // All Employees = no sharing restrictions. Empty arrays = visible to everyone in the org.
     } else if (shareMode === 'departments') {
       finalSharedWithDepartments = selectedDepartments;
     } else if (shareMode === 'users') {
