@@ -12,6 +12,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Building2, Plus, Users, BookOpen, CreditCard, Settings, Trash2, Edit2, UserPlus, Mail, ShieldCheck, User as UserIcon, Cpu, Zap, Activity, Key, Eye, EyeOff, Check, AlertTriangle } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { User, UserRole } from "../types";
+import { PasswordInput } from "@/components/ui/password-input";
 
 interface OrganizationMember {
   id: string;
@@ -1053,9 +1054,8 @@ export default function OrgAdminDashboard({ currentUser, section = 'overview' }:
             </div>
             <div className="space-y-2">
               <Label htmlFor="member-password">Password</Label>
-              <Input
+              <PasswordInput
                 id="member-password"
-                type="password"
                 placeholder="Enter password"
                 value={newMember.password}
                 onChange={(e) => setNewMember({ ...newMember, password: e.target.value })}

@@ -11,6 +11,7 @@ import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { Building2, Plus, Users, BookOpen, CreditCard, Settings, Trash2, Edit2, Crown, CheckCircle2, UserPlus, Shield, Mail, Brain, TrendingUp, Zap, Key } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
+import { PasswordInput } from "@/components/ui/password-input";
 
 interface Organization {
   id: string;
@@ -1879,10 +1880,9 @@ export default function SuperAdminDashboard({ currentUser, section = 'organizati
             </div>
             <div className="space-y-2">
               <Label htmlFor="orgadmin-password">Password</Label>
-              <Input
+              <PasswordInput
                 id="orgadmin-password"
                 data-testid="input-orgadmin-password"
-                type="password"
                 value={newOrgAdmin.password}
                 onChange={(e) => setNewOrgAdmin(prev => ({ ...prev, password: e.target.value }))}
                 placeholder="Enter a secure password"
@@ -1931,10 +1931,9 @@ export default function SuperAdminDashboard({ currentUser, section = 'organizati
               <div className="space-y-2">
                 <Label>Reset Password</Label>
                 <div className="flex gap-2">
-                  <Input
+                  <PasswordInput
                     id="reset-password"
                     data-testid="input-reset-password"
-                    type="password"
                     placeholder="Enter new password (min 6 chars)"
                     value={(selectedOrgAdmin as any).newPassword || ""}
                     onChange={(e) => setSelectedOrgAdmin(prev => prev ? { ...prev, newPassword: e.target.value } : null)}

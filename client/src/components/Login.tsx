@@ -7,6 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Building2, CheckCircle2 } from 'lucide-react';
+import { PasswordInput } from "@/components/ui/password-input";
 
 interface LoginProps {
   onLogin: (user: User) => void;
@@ -295,9 +296,8 @@ export default function Login({ onLogin }: LoginProps) {
 
                   <div className="space-y-2">
                     <Label htmlFor="admin-password">Password</Label>
-                    <Input
+                    <PasswordInput
                       id="admin-password"
-                      type="password"
                       required
                       minLength={6}
                       value={adminPassword}
@@ -378,10 +378,9 @@ export default function Login({ onLogin }: LoginProps) {
 
                   <div className="space-y-2">
                     <Label htmlFor="password">Password</Label>
-                    <Input
+                    <PasswordInput
                       id="password"
                       name="password"
-                      type="password"
                       autoComplete="current-password"
                       required
                       value={password}
