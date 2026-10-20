@@ -1006,7 +1006,7 @@ Requirements:
 
       // Check if plan exists
       const plan = await storage.getLicensePlan(planId);
-      if (!plan) {
+      if (!plan || plan.isActive === false) {
         return res.status(400).json({ error: "Invalid plan selected" });
       }
 
@@ -1015,6 +1015,10 @@ Requirements:
         .toLowerCase()
         .replace(/[^a-z0-9]+/g, '-')
         .replace(/^-|-$/g, '');
+
+      if (!slug) {
+        return res.status(400).json({ error: "Organization name must contain letters or numbers" });
+      }
 
       // Check if org with this slug exists
       const existingOrg = await storage.getOrganizationBySlug(slug);
@@ -1093,8 +1097,8 @@ Requirements:
       if (user.organizationId && user.role !== 'SuperAdmin') {
         const organization = await storage.getOrganization(user.organizationId);
         if (organization && !organization.isActive) {
-          // Use same error as invalid password to prevent information leakage
-          return res.status(401).json({ error: "Invalid email or password" });
+          // Password already verified above, so this does not leak account existence
+          return res.status(403).json({ error: "Your organization is awaiting approval or is inactive. Contact the administrator." });
         }
       }
 

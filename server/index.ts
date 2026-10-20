@@ -75,8 +75,8 @@ app.use((req, res, next) => {
     const duration = Date.now() - start;
     if (path.startsWith("/api")) {
       let logLine = `${req.method} ${path} ${res.statusCode} in ${duration}ms`;
-      if (capturedJsonResponse) {
-        logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;
+      if (capturedJsonResponse && res.statusCode >= 400) {
+        logLine += ` :: ${JSON.stringify(capturedJsonResponse).slice(0, 300)}`;
       }
 
       log(logLine);
@@ -221,8 +221,11 @@ async function seedDemoData() {
     const status = err.status || err.statusCode || 500;
     const message = err.message || "Internal Server Error";
 
+    console.error("Unhandled error:", err);
+    if (res.headersSent) {
+      return;
+    }
     res.status(status).json({ message });
-    throw err;
   });
 
   // importantly only setup vite in development and after

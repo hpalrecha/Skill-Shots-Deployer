@@ -103,7 +103,6 @@ export default function CreatorDashboard({
   const [isUpdatingUser, setIsUpdatingUser] = useState(false);
 
   const startEditTopic = async (topic: Topic) => {
-    console.log('startEditTopic - topic.modules:', topic.modules);
     let fullTopic = topic;
     try {
       const res = await fetch(`/api/topics/${topic.id}`, { credentials: 'include' });
@@ -130,19 +129,19 @@ export default function CreatorDashboard({
 
     // Determine sharing mode from topic data
     const allEmployeesGroup = groups.find(g => g.name === 'All Employees');
-    if (allEmployeesGroup && topic.sharedWith.includes(allEmployeesGroup.id)) {
+    if (allEmployeesGroup && (fullTopic.sharedWith ?? []).includes(allEmployeesGroup.id)) {
       setShareMode('all');
       setSelectedGroups([]);
       setSelectedUsers([]);
       setSelectedDepartments([]);
-    } else if (topic.sharedWithDepartments && topic.sharedWithDepartments.length > 0) {
+    } else if (fullTopic.sharedWithDepartments && fullTopic.sharedWithDepartments.length > 0) {
       setShareMode('departments');
-      setSelectedDepartments(topic.sharedWithDepartments);
+      setSelectedDepartments(fullTopic.sharedWithDepartments);
       setSelectedGroups([]);
       setSelectedUsers([]);
-    } else if (topic.sharedWithUsers && topic.sharedWithUsers.length > 0) {
+    } else if (fullTopic.sharedWithUsers && fullTopic.sharedWithUsers.length > 0) {
       setShareMode('users');
-      setSelectedUsers(topic.sharedWithUsers);
+      setSelectedUsers(fullTopic.sharedWithUsers);
       setSelectedGroups([]);
       setSelectedDepartments([]);
     } else {
